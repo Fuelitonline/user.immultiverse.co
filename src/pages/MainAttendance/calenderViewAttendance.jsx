@@ -68,9 +68,6 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
   };
 
   const fetchHolidays = async (apiKey) => {
-    const CALENDAR_ID = "en.indian#holiday@group.v.calendar.google.com";
-    const url = `https://www.googleapis.com/calendar/v3/calendars/${CALENDAR_ID}/events?key=${apiKey}&timeMin=${new Date().toISOString()}&singleEvents=true&orderBy=startTime`;
-
     try {
       const response = await axios.get(url);
       return response.data.items.map((event) => ({
