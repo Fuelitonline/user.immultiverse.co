@@ -1,0 +1,435 @@
+
+<Box
+id="salary-slip-content"
+sx={{
+    ...styles.pdfContainer,
+    position: "relative",
+    backgroundPosition: "center center", // Ensures the image is centered
+    backgroundSize: "contain", // Ensures the image scales properly within the container
+    backgroundRepeat: "no-repeat", // Prevents repeating the image
+    backgroundAttachment: "scroll", // Fixes potential issues with `fixed` attachment
+    boxShadow: "0 12px 24px rgba(0, 0, 0, 0.1)",
+    borderRadius: "15px",
+  }}
+  
+>
+<Box
+  sx={{
+    backgroundColor: "rgba(255, 255, 255, 0.97)",
+    width:'112%',
+    ml:'-6%',
+    padding: "20px",
+}}>
+<Grid container spacing={0} sx={styles.header}>
+  <Grid item xs={3} md={3}>
+    <img
+      src={companyData?.logo || companyLogo}
+      alt="Company Logo"
+      style={styles.logo}
+    />
+  </Grid>
+  <Grid item xs={9} md={9} sx={{
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "right",
+   
+  }}>
+     <Typography  sx={{
+        color: "Black",
+        fontSize: "12px",
+        textAlign: "right",
+    }}>
+      {companyData?.CIN || "Company Name"}
+    </Typography>
+    <Typography variant="h5" sx={{
+        color: "Black",
+        fontSize: "20px",
+        fontWeight: "bold",
+        textAlign: "right",
+    }}>
+      {companyData?.companyName || "Company Name"}
+    </Typography>
+    <Typography sx={{
+        color: "Black",
+        textAlign: "right",
+        fontSize: "12px",
+        
+    }}>{companyData?.companyAddress?.street || "Address not available"}</Typography>
+     <Typography sx={{
+        color: "Black",
+        textAlign: "right",
+        fontSize: "12px"
+    }}>{companyData?.email || "Email not available"}</Typography>
+    <Typography sx={{
+        color: "Black",
+        textAlign: "right",
+        fontSize: "12px"
+    }}>{companyData?.phone || "Phone not available"}</Typography>
+   
+  </Grid>
+</Grid>
+<Grid item xs={12} sm={2} md={4} sx={{ gap: 1, borderTop: "3px solid #aea2fc", borderBottom: "3px solid #aea2fc", padding:1, mt:1, justifyContent:'space-between' , display:'flex'}}>
+{/* <Typography variant="subtitle1"  sx={{ fontSize:'12px' , color :'grey', textAlign:'left'}}>Salary Slip for month {month} - {year}</Typography> */}
+<Typography variant="subtitle1"  sx={{ fontSize:'16px' , color :'black', textAlign:'left',fontFamily: 'Arial, sans-serif'}}>Date of Joining : {DateTime.fromISO(employeeData?.joiningDate).toFormat('DD') || "Not available"}</Typography>
+<Typography variant="subtitle1"  sx={{ fontSize:'14px' , color :'#3f0eab', textAlign:'left',fontFamily: 'Arial, sans-serif'}}>Pay Period {month} - {year}</Typography> 
+</Grid>
+
+<Box sx={{ padding: 0 , color:'black'}}>
+<Grid container spacing={0.3} m={1}>
+
+<Grid item xs={12} sm={9} md={6} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1" sx={{fontWeight: "bold" , fontSize:'14px' , color :'black',fontFamily: 'Arial, sans-serif'}}>Employee Name : </Typography>
+<Typography sx={{ fontSize:'14px',fontFamily: 'Arial, sans-serif' }}>{employeeData?.name || "Not available"}</Typography>
+</Grid>
+
+{/* Designation */}
+<Grid item xs={12} sm={12} md={6} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1"  sx={{fontWeight: "bold" , fontSize:'14px' , color :'black',fontFamily: 'Arial, sans-serif'}}>Designation : </Typography>
+<Typography sx={{fontSize:'14px',fontFamily: 'Arial, sans-serif' }}>{employeeData?.position || "Not available"}</Typography>
+</Grid>
+
+{/* Employee ID */}
+<Grid item xs={12} sm={6} md={6} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1"  sx={{fontWeight: "bold" , fontSize:'14px' , color :'black',fontFamily: 'Arial, sans-serif'}}>Employee ID :</Typography>
+<Typography sx={{  fontSize:'14px',fontFamily: 'Arial, sans-serif'}}>{employeeData?.empId || "Not available"}</Typography>
+</Grid>
+
+
+{/* Bank Name */}
+<Grid item xs={12} sm={6} md={6} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1"  sx={{ fontWeight: "bold" ,fontSize:'14px' , color :'black',fontFamily: 'Arial, sans-serif'}}>Bank Name : </Typography>
+<Typography sx={{ fontSize:'14px',fontFamily: 'Arial, sans-serif'}}>{employeeData?.bankDetails?.bankName || "Not available"}</Typography>
+</Grid>
+
+{/* Account Number */}
+<Grid item xs={12} sm={6} md={6} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1"  sx={{fontWeight: "bold" , fontSize:'14px' , color :'black',fontFamily: 'Arial, sans-serif'}}>Account Number : </Typography>
+<Typography sx={{  fontSize:'14px',fontFamily: 'Arial, sans-serif'}}>{employeeData?.bankDetails?.accountNumber || "Not available"}</Typography>
+</Grid>
+
+{/* IFSC Code */}
+<Grid item xs={12} sm={6} md={6} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1"  sx={{ fontWeight: "bold" ,fontSize:'14px' , color :'black',fontFamily: 'Arial, sans-serif'}}>IFSC Code :</Typography>
+<Typography sx={{ fontSize:'14px',fontFamily: 'Arial, sans-serif'}}>{employeeData?.bankDetails?.ifscCode || "Not available"}</Typography>
+</Grid>
+
+{/* Branch */}
+<Grid item xs={12} sm={6} md={6} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1"  sx={{fontWeight: "bold" , fontSize:'14px' , color :'black',fontFamily: 'Arial, sans-serif'}}>Branch : </Typography>
+<Typography sx={{  fontSize:'14px',fontFamily: 'Arial, sans-serif'}}>{employeeData?.bankDetails?.branch || "Not available"}</Typography>
+</Grid>
+</Grid>
+</Box>
+
+{/* Inner Box with Rounded Rope-like Effect */}
+<Box sx={{
+width: '100%', // Inner box width
+height: 'max-content', 
+borderRadius: '28px', // Rounded corners for inner box
+padding: '10px', // Padding inside the inner box
+boxShadow: `
+inset 0px 0px 10px rgba(255, 255, 255, 0.5),  // White highlight in the middle
+inset 2px 2px 8px rgba(200, 200, 200, 0.3),  // Grey shadow to simulate rope texture
+0px 0px 10px rgba(0, 0, 0, 0.1),  // Light outer shadow for depth
+0px 0px 5px rgba(0, 0, 0, 0.15)`, // Adding more outer depth
+border: '6px solid #dbd9de', // The rope's inner "thickness"
+mt:1
+}}>
+<Grid width={"100%"}>
+    <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'black', fontSize:'14px', textAlign: 'left' }}>Earnings</Typography>
+    <Grid width={"100%"} sx={{
+      display: 'flex',
+      justifyContent: 'space-between',
+    }}>
+         <Grid ml={0} mt={1} width={"45%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>Basic Pay</Typography>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left' }}>Bouns Pay</Typography>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left' }}>Allowance Pay</Typography>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left' }}>Insentive Pay</Typography>
+         </Grid>
+         <Grid ml={0} mt={1} width={"10%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>-</Typography>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left' }}>-</Typography>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left' }}>-</Typography>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left' }}>-</Typography>
+         </Grid>
+         <Grid ml={0} mt={1} width={"45%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>₹{saleryData?.basePay || "0"}</Typography>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left' }}>₹{saleryData?.bonus || "0"}</Typography>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left' }}>₹{saleryData?.allowance || "0"}</Typography>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left' }}>₹{saleryData?.totalIncentive || "0"}</Typography>
+         </Grid>
+    </Grid>
+    <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'black', fontSize:'14px', textAlign: 'left', mt:1 }}>Other Allowances</Typography>
+    {saleryData?.customAllowances?.length > 0 ?
+   saleryData.customAllowances.map((allowance, index) => (
+  <Grid item xs={12} sm={2} md={4} key={index} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+   <Grid width={"100%"} sx={{
+      display: 'flex',
+      justifyContent: 'space-between',
+    }}>
+         <Grid ml={0} mt={0} width={"45%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>{allowance?.type}</Typography>
+         </Grid>
+         <Grid ml={0} mt={1} width={"10%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>-</Typography>
+               
+         </Grid>
+         <Grid ml={0} mt={1} width={"45%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>₹{allowance?.value || "0"}</Typography>
+         </Grid>
+    </Grid>
+  </Grid>
+)) : 'No Other Deductions'}
+</Grid>
+<Divider 
+
+sx={{ 
+mt: 2, 
+fontSize: '12px', 
+borderTop: '1.5px solid grey'  // Adjust the thickness of the divider
+}} 
+/>
+<Grid width={"100%"}>
+    <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'black', fontSize:'14px', textAlign: 'left', mt:1 }}>Deductions</Typography>
+    <Grid width={"100%"} sx={{
+      display: 'flex',
+      justifyContent: 'space-between',
+    }}>
+         <Grid ml={0} mt={1} width={"45%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>Absence Deduction</Typography>
+         </Grid>
+         <Grid ml={0} mt={1} width={"10%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>-</Typography>
+               
+         </Grid>
+         <Grid ml={0} mt={1} width={"45%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>₹{saleryData?.deductions || "0"}</Typography>
+         </Grid>
+    </Grid>
+    <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'black', fontSize:'14px', textAlign: 'left', mt:1 }}>Other Deductions</Typography>
+    {saleryData?.customDeductions?.length > 0 ?
+   saleryData.customDeductions.map((deduction, index) => (
+  <Grid item xs={12} sm={2} md={4} key={index} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+   <Grid width={"100%"} sx={{
+      display: 'flex',
+      justifyContent: 'space-between',
+    }}>
+         <Grid ml={0} mt={0} width={"45%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>{deduction?.type}</Typography>
+         </Grid>
+         <Grid ml={0} mt={1} width={"10%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>-</Typography>
+               
+         </Grid>
+         <Grid ml={0} mt={1} width={"45%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>₹{deduction?.value || "0"}</Typography>
+         </Grid>
+    </Grid>
+  </Grid>
+)) : 'No Other Deductions'}
+</Grid>
+<Divider 
+
+sx={{ 
+ mt: 2, 
+ fontSize: '12px', 
+ borderTop: '1.5px solid grey'  // Adjust the thickness of the divider
+}} 
+/>
+<Grid width={"100%"} sx={{
+      display: 'flex',
+      justifyContent: 'space-between',
+    }}>
+         <Grid ml={0} mt={1} width={"45%"}>
+               <Typography variant="body1" sx={{ fontWeight: 'bold', color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>Net Pay</Typography>
+         </Grid>
+         <Grid ml={0} mt={1} width={"10%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>-</Typography>
+               
+         </Grid>
+         <Grid ml={0} mt={1} width={"45%"}>
+               <Typography variant="body1" sx={{fontWeight: 'bold',  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>₹{saleryData?.netPay || "0"}</Typography>
+         </Grid>
+    </Grid>
+    <Divider 
+
+sx={{ 
+ mt: 2, 
+ fontSize: '12px', 
+ borderTop: '1.5px solid grey'  // Adjust the thickness of the divider
+}} 
+/>
+    <Grid width={"100%"} sx={{
+      display: 'flex',
+      justifyContent: 'space-between',
+    }}>
+         <Grid ml={0} mt={1} width={"45%"}>
+               <Typography variant="body1" sx={{fontWeight: 'bold',  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>Net Pay In Words</Typography>
+         </Grid>
+         <Grid ml={0} mt={1} width={"10%"}>
+               <Typography variant="body1" sx={{  color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>-</Typography>
+               
+         </Grid>
+         <Grid ml={0} mt={1} width={"45%"}>
+               <Typography variant="body1" sx={{ fontWeight: 'bold', color: 'black', fontSize:'14px', textAlign: 'left', fontFamily: 'Arial, sans-serif' }}>{ saleryData?.netPay && toWords(saleryData?.netPay)?.split(' ') // Split the string into an array of words
+.map(word => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize each word
+.join(' ') || "0"}</Typography>
+         </Grid>
+    </Grid>
+</Box>
+
+
+<Box sx={{ padding: 2, color:'black' , display: 'none' }}>
+<Grid container spacing={0}>
+{/* Base Pay */}
+<Grid item xs={12} sm={2} md={4} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1"  sx={{ fontSize:'14px' , color :'black'}}>Base Pay: </Typography>
+<Typography sx={{ fontWeight: "bold" , fontSize:'13px'}}>₹{saleryData?.basePay || "0"}</Typography>
+</Grid>
+
+{/* Bonus */}
+<Grid item xs={12} sm={2} md={4} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1"  sx={{ fontSize:'12px' , color :'black'}}>Bonus: </Typography>
+<Typography sx={{ fontWeight: "bold" , fontSize:'13px'}}>₹{saleryData?.bonus || "0"}</Typography>
+</Grid>
+
+{/* Deductions */}
+<Grid item xs={12} sm={2} md={4} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1"  sx={{ fontSize:'12px' , color :'black'}}>Deductions: </Typography>
+<Typography sx={{ fontWeight: "bold" , fontSize:'13px'}}>{saleryData?.deductions === 0 ? "0" : saleryData?.deductions  || deductions || "0"} Day</Typography>
+</Grid>
+
+{/* Additional Allowances */}
+{saleryData?.customAllowances?.length > 0 &&
+saleryData.customAllowances.map((allowance, index) => (
+  <Grid item xs={12} sm={2} md={4} key={index} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+    <Typography variant="subtitle1"  sx={{ fontSize:'12px' , color :'black'}}>{allowance.type || "Allowance Name"}: </Typography>
+    <Typography sx={{ fontWeight: "bold", fontSize:'13px' }}>₹{allowance.value || "0"}</Typography>
+  </Grid>
+))}
+
+{/* Additional Deductions */}
+{saleryData?.customDeductions?.length > 0 &&
+saleryData.customDeductions.map((deduction, index) => (
+  <Grid item xs={12} sm={2} md={4} key={index} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+    <Typography variant="subtitle1"  sx={{ fontSize:'12px' , color :'grey'}}>{deduction.name || "Deduction Name"}: </Typography>
+    <Typography sx={{ fontWeight: "bold", fontSize:'13px' }}>₹{deduction.value || "0"}</Typography>
+  </Grid>
+))}
+
+{/* Net Pay */}
+<Grid item xs={12} sm={2} md={4} sx={{ display: "flex", alignItems: "center", gap: 1, backgroundColor:'#ace3b4', padding:1, mt:1, justifyContent:'center' }}>
+<Typography variant="subtitle1"  sx={{ fontSize:'12px' , color :'grey'}}>Net Pay: </Typography>
+<Typography sx={{ fontWeight: "bold" , fontSize:'13px', color:'black'}}>₹{saleryData?.netPay || netPay|| "0"}</Typography>
+</Grid>
+</Grid>
+</Box>
+
+{/* Sales and Incentives Section */}
+<Typography variant="h6" sx={styles.sectionTitle} display={'none'}>
+Sales and Incentives
+</Typography>
+
+<Box sx={{ padding: 2 , color:'black', display: 'none'}}>
+<Grid container spacing={2}>
+{/* Total Self Sales */}
+<Grid item xs={12} sm={3} md={6} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1" sx={{ fontSize: '12px', color: 'grey' }}>Total Self Sales: </Typography>
+<Typography sx={{ fontWeight: "bold", fontSize: '13px' }}>
+  ₹{calculateTotalSales(selfSales)}
+</Typography>
+</Grid>
+
+{/* Total Sale By Team */}
+<Grid item xs={12} sm={3} md={6} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1" sx={{ fontSize: '12px', color: 'grey' }}>Total Sale By Team: </Typography>
+<Typography sx={{ fontWeight: "bold", fontSize: '13px' }}>
+  ₹{calculateTotalSales(teamSales)}
+</Typography>
+</Grid>
+
+{/* Total Self Sales Incentive */}
+<Grid item xs={12} sm={3} md={6} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1" sx={{ fontSize: '12px', color: 'grey' }}>Total Self Sales Incentive: </Typography>
+<Typography sx={{ fontWeight: "bold", fontSize: '13px' }}>
+  ₹{selfIncentive}
+</Typography>
+</Grid>
+
+{/* Total Sale By Team Incentive */}
+<Grid item xs={12} sm={3} md={6} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+<Typography variant="subtitle1" sx={{ fontSize: '12px', color: 'grey' }}>Total Sale By Team Incentive: </Typography>
+<Typography sx={{ fontWeight: "bold", fontSize: '13px' }}>
+  ₹{teamIncentive}
+</Typography>
+</Grid>
+</Grid>
+</Box>
+<Box sx={{ padding: 2 , display: 'none'}}>
+<Typography variant="h6" sx={{
+fontSize: '14px',
+textAlign: 'left',
+color: '#34495e',
+fontWeight: 'bold',
+}}>By Self</Typography>
+<Grid container spacing={1}>
+
+{renderSlabDetails(selfSales, payrollData)
+}
+</Grid>
+</Box>
+<Box sx={{ padding: 2 , display: 'none'}}>
+<Typography variant="h6" sx={{
+fontSize: '14px',
+textAlign: 'left',
+color: '#34495e',
+fontWeight: 'bold',
+}}>By Team</Typography>
+<Grid container spacing={1} display={'none'}>
+{renderSlabDetails(teamSales, payrollData)
+}
+</Grid>
+</Box>
+
+
+
+
+<Box
+sx={{
+
+display: "flex",
+justifyContent: "right",
+alignItems: "right",
+padding: "10px",
+flexDirection: "column", 
+maxWidth: "100%", // Align text in the center below the image
+ml: 50
+
+}}
+>
+{/* Signature Image */}
+<img 
+src={sign} 
+alt="Signature" 
+style={{
+width: "100px",
+maxHeight: "50px", // Limit height if necessary
+}} 
+/>
+
+{/* Signature Label */}
+<Typography 
+variant="body2" 
+sx={{
+marginTop: "5px",
+fontSize: "14px",
+fontWeight: "bold",
+color: "#555", // Darker color for readability
+}}
+>
+Authorized Signature
+</Typography>
+</Box>
+</Box>
+</Box>

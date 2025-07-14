@@ -1,0 +1,7 @@
+.PhoneInputCountry {
+    outline: none !important;
+    border: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important; /* Removes any default box-shadow */
+    background: none !important; /* Removes the default background */
+}

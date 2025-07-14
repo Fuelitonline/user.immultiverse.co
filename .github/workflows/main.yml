@@ -1,0 +1,54 @@
+name: 🚀 Shipping Build
+on:
+  push:
+    branches:
+      - main
+jobs:
+  FTP-Deploy-Action:
+    name: 🎉 Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: "22.x"
+
+      - name: 🔨 Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: 📝 Create .env file for build
+        run: |
+          echo "VITE_SECRET_KEY=${{ secrets.VITE_SECRET_KEY }}" >> .env
+          echo "VITE_server_Link=${{ secrets.VITE_server_Link }}" >> .env
+          echo "REACT_APP_FILE_SECRET_KEY=${{ secrets.REACT_APP_FILE_SECRET_KEY }}" >> .env
+          cat .env  # Debugging: confirm contents
+
+      - name: 🏗 Build Project
+        run: |
+          NODE_OPTIONS="--max_old_space_size=6144" npm run build --verbose --loglevel silly
+        env:
+          CI: false
+
+      - name: 📋 List dist contents
+        run: ls -la ./dist/  # Confirm what’s in dist/
+
+      - name: 📂 Sync folders and files to the server via FTP/FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with: 
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: "./dist/"
+          server-dir: "/"
+          protocol: "ftp"
+          port: 21
+          create-dirs: true
+          log-level: "verbose"  # More detailed FTP logs
+        env:
+          ENABLE_LOG: true

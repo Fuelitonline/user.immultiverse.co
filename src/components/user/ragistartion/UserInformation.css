@@ -1,0 +1,150 @@
+/* Background overlay */
+.bg-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.85));
+  backdrop-filter: blur(10px);
+  z-index: -1;
+}
+
+/* Form container */
+.form-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px;
+  border-radius: var(--border-radius);
+  background-color: var(--background-color);
+  box-shadow: var(--box-shadow);
+}
+
+/* Form title */
+.form-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+/* Form sections */
+.form-section {
+  margin-bottom: 24px;
+}
+
+.form-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--secondary-color);
+  margin-bottom: 16px;
+}
+
+/* Input fields */
+.MuiOutlinedInput-root {
+  border-radius: var(--border-radius) !important;
+  transition: var(--transition);
+}
+
+.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: var(--primary-color) !important;
+}
+
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: var(--primary-color) !important;
+  border-width: 2px !important;
+}
+
+.MuiFormLabel-root.Mui-focused {
+  color: var(--primary-color) !important;
+}
+
+.MuiInputBase-input {
+  padding: 14px 16px !important;
+}
+
+/* Select fields */
+.MuiSelect-select {
+  padding: 14px 16px !important;
+}
+
+/* Error styles */
+.error-text {
+  color: var(--error-color);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Button styles */
+.submit-button {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+  font-weight: 600 !important;
+  padding: 12px 24px !important;
+  border-radius: var(--border-radius) !important;
+  text-transform: none !important;
+  font-size: 16px !important;
+  box-shadow: 0 4px 12px rgba(84, 105, 212, 0.3) !important;
+  transition: var(--transition) !important;
+}
+
+.submit-button:hover {
+  background-color: var(--primary-color) !important;
+  box-shadow: 0 6px 16px rgba(84, 105, 212, 0.4) !important;
+  transform: translateY(-1px);
+}
+
+/* Progress stepper */
+.MuiStepLabel-root .MuiStepLabel-active {
+  color: var(--primary-color) !important;
+}
+
+.MuiStepIcon-root.MuiStepIcon-active {
+  color: var(--primary-color) !important;
+}
+
+.MuiStepIcon-root.MuiStepIcon-completed {
+  color: var(--success-color) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .form-container {
+    padding: 24px 16px;
+  }
+  
+  .form-title {
+    font-size: 24px;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.form-container {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Toast notification customization */
+.Toastify__toast {
+  border-radius: var(--border-radius);
+  font-family: inherit;
+}
+
+.Toastify__toast--success {
+  background-color: var(--success-color);
+}
+
+.Toastify__toast--error {
+  background-color: var(--error-color);
+}
