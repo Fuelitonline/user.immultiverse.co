@@ -144,8 +144,8 @@ export const AuthProvider = ({ children }) => {
         if (err.response?.status === 401) {
           console.log("401 error detected, logging out...");
  window.location.href = user?.role === "superadmin"
-        ? "https://auth.immultiverse.co/login?user=superAdmin&redirect=user.immultiverse.co"
-        : "https://auth.immultiverse.co/login?user=employee&redirect=employee.immultiverse.co";
+    ? "https://auth.immultiverse.co/login?user=superAdmin&redirect=user.immultiverse.co"
+    : "https://auth.immultiverse.co/login?user=employee&redirect=employee.immultiverse.co";
           logout();
         }
         return Promise.reject(err);

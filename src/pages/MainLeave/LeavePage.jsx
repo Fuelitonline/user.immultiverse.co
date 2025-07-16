@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, Box, Grid, Paper, 
-  IconButton, Autocomplete, Snackbar, Alert, CircularProgress, Tooltip, FormControl, InputLabel, Select, 
+  Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, Box, Grid, Paper,
+  IconButton, Autocomplete, Snackbar, Alert, CircularProgress, Tooltip, FormControl, InputLabel, Select,
   MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, InputAdornment, TextField
 } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
@@ -37,7 +37,7 @@ const commonStyles = {
     borderRadius: '16px',
     border: `2px solid ${theme.palette.grey[300]}`,
     boxShadow: '0 8px 20px rgba(0, 0, 0, 0.1)',
-    maxHeight: '50vh', // Set a fixed height for scrolling
+    maxHeight: '50vh',
     overflowY: 'auto',
     background: '#fff',
     transition: 'all 0.3s ease',
@@ -53,12 +53,12 @@ const commonStyles = {
     },
   }),
   table: {
-    tableLayout: 'fixed', // Ensure consistent column widths
+    tableLayout: 'fixed',
     width: '100%',
   },
   tableHead: (theme) => ({
     position: 'sticky',
-    top: 0, // Stick to the top of TableContainer
+    top: 0,
     zIndex: 1,
     backgroundColor: theme.palette.primary.light,
   }),
@@ -121,7 +121,7 @@ const LeaveFilter = ({ filters, handleFilterChange, handleOpenModal, theme }) =>
   <Grid container spacing={2} sx={{ mb: 3, alignItems: 'center' }}>
     <Grid container item spacing={2} xs={12}>
       {[
-        { name: 'leaveType', label: 'Leave Type', options: ['', 'Casual Leave', 'Sick Leave', 'Paid', 'Unpaid'], type: 'select', bgColor: '#E6E6FA', hoverBg: '#D8BFD8', icon: <EventNoteIcon /> },
+        { name: 'leaveType', label: 'Leave Type', options: ['', 'Casual Leave', 'Sick Leave'], type: 'select', bgColor: '#E6E6FA', hoverBg: '#D8BFD8', icon: <EventNoteIcon /> },
         { name: 'status', label: 'Status', options: ['', 'Pending', 'Approved', 'Rejected'], type: 'select', bgColor: '#98FB98', hoverBg: '#90EE90', icon: <AssignmentTurnedInIcon /> },
         { name: 'startDate', label: 'Start Date', type: 'date', bgColor: '#FFB6C1', hoverBg: '#FFAEB9', icon: <CalendarTodayIcon /> },
         { name: 'endDate', label: 'End Date', type: 'date', bgColor: '#F0E68C', hoverBg: '#E6D8A2', icon: <CalendarTodayIcon /> },
@@ -181,6 +181,31 @@ const LeaveFilter = ({ filters, handleFilterChange, handleOpenModal, theme }) =>
     <Grid container item spacing={2} xs={12}>
       <Grid item xs={3}>
         <FormControl fullWidth variant="outlined">
+          <InputLabel>Payment Type</InputLabel>
+          <Select
+            name="leavePaymentType"
+            value={filters.leavePaymentType || ''}
+            onChange={handleFilterChange}
+            label="Payment Type"
+            startAdornment={
+              <InputAdornment position="start">
+                <EventNoteIcon />
+              </InputAdornment>
+            }
+            sx={{
+              ...commonStyles.inputField(theme),
+              backgroundColor: '#DADAEB',
+              '&:hover': { backgroundColor: '#C3C8E6' },
+            }}
+          >
+            {['', 'Paid', 'Unpaid'].map((opt) => (
+              <MenuItem key={opt} value={opt}>{opt || 'All'}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Grid>
+      <Grid item xs={3}>
+        <FormControl fullWidth variant="outlined">
           <InputLabel>Duration</InputLabel>
           <Select
             name="duration"
@@ -238,7 +263,7 @@ const LeaveTable = ({ filteredLeaveRequests, user, userId, loading, handleAction
         <Table sx={commonStyles.table}>
           <TableHead sx={commonStyles.tableHead(theme)}>
             <TableRow>
-              {['Leave Type', 'Leave Duration', 'Time', 'Status', 'Reason'].map((header) => (
+              {['Leave Type', 'Date', 'Leave Duration', 'Time', 'Payment Type', 'Status', 'Reason'].map((header) => (
                 <TableCell key={header} sx={commonStyles.tableCell(theme)}>
                   {header}
                 </TableCell>
@@ -257,12 +282,17 @@ const LeaveTable = ({ filteredLeaveRequests, user, userId, loading, handleAction
                   key={item._id || Date.now()}
                   sx={{
                     '&:hover': { backgroundColor: '#f5f7fa', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)' },
-                    '&:last-child td': { borderBottom: 0 }
+                    '&:last-child td': { borderBottom: 0 },
                   }}
                 >
                   <TableCell sx={{ textAlign: 'center', borderRight: `1px solid ${theme.palette.grey[200]}` }}>
                     <Typography variant="body2" fontWeight="medium">
                       {item.leaveType || 'N/A'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell sx={{ textAlign: 'center', borderRight: `1px solid ${theme.palette.grey[200]}` }}>
+                    <Typography variant="body2" fontWeight="medium">
+                      {item.date ? new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ textAlign: 'center', borderRight: `1px solid ${theme.palette.grey[200]}` }}>
@@ -273,6 +303,17 @@ const LeaveTable = ({ filteredLeaveRequests, user, userId, loading, handleAction
                   <TableCell sx={{ textAlign: 'center', borderRight: `1px solid ${theme.palette.grey[200]}` }}>
                     <Typography variant="body2" fontWeight="medium">
                       {item.time ? new Date(item.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell sx={{ textAlign: 'center', borderRight: `1px solid ${theme.palette.grey[200]}` }}>
+                    <Typography
+                      variant="body2"
+                      fontWeight="medium"
+                      sx={{
+                        color: item.leavePaymentType === 'Paid' ? theme.palette.success.main : theme.palette.warning.dark,
+                      }}
+                    >
+                      {item.leavePaymentType || 'N/A'}
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ textAlign: 'center', borderRight: `1px solid ${theme.palette.grey[200]}` }}>
@@ -296,7 +337,7 @@ const LeaveTable = ({ filteredLeaveRequests, user, userId, loading, handleAction
                       {item.status || 'Unknown'}
                     </Button>
                   </TableCell>
-                  <TableCell sx={{ textAlign: 'center', borderRight: `1px solid ${theme.palette.grey[200]}` }}>
+                  <TableCell sx={{ textAlign: 'left', borderRight: `1px solid ${theme.palette.grey[200]}` }}>
                     <Tooltip title={item.reason || 'No reason provided'}>
                       <Typography variant="body2" fontWeight="medium" sx={{ wordBreak: 'break-word' }}>
                         {item.reason || 'N/A'}
@@ -351,7 +392,7 @@ const LeaveTable = ({ filteredLeaveRequests, user, userId, loading, handleAction
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={user.role === 'superAdmin' || user?.junior?.includes(userId) ? 6 : 5} sx={{ textAlign: 'center', py: 4 }}>
+                <TableCell colSpan={user.role === 'superAdmin' || user?.junior?.includes(userId) ? 8 : 7} sx={{ textAlign: 'center', py: 4 }}>
                   <Typography variant="body1" color="text.secondary">
                     No leave requests match the selected filters
                   </Typography>
@@ -393,9 +434,9 @@ const LeaveModal = ({ openModal, handleCloseModal, leaveData, setLeaveData, form
       sx: { backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' },
     }}
   >
-    <DialogTitle sx={{ 
-      textAlign: 'center', 
-      fontWeight: 'bold', 
+    <DialogTitle sx={{
+      textAlign: 'center',
+      fontWeight: 'bold',
       color: theme.palette.text.primary,
       fontSize: '1.25rem',
       letterSpacing: '-0.02em',
@@ -456,7 +497,15 @@ const LeavePage = () => {
   const userId = user?._id;
   const theme = useTheme();
   const [openModal, setOpenModal] = useState(false);
-  const [leaveData, setLeaveData] = useState({ leaveType: "", date: "", reason: "", leaveDuration: "", halfDayType: "", time: "" });
+  const [leaveData, setLeaveData] = useState({
+    leaveType: "",
+    date: "",
+    reason: "",
+    leaveDuration: "",
+    halfDayType: "",
+    time: "",
+    leavePaymentType: "Paid",
+  });
   const [formErrors, setFormErrors] = useState({});
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [loading, setLoading] = useState(null);
@@ -469,6 +518,7 @@ const LeavePage = () => {
     startDate: "",
     endDate: "",
     duration: "",
+    leavePaymentType: "",
   });
 
   const { data: leaves, isLoading, refetch } = useGet('employee/leave/get-by-id', { employeeId: userId });
@@ -491,6 +541,7 @@ const LeavePage = () => {
     if (leaveData.leaveDuration === 'Half Day' && !leaveData.halfDayType) errors.halfDayType = "Half day type is required";
     if (!leaveData.time) errors.time = "Time is required";
     if (!leaveData.reason.trim()) errors.reason = "Reason is required";
+    if (!leaveData.leavePaymentType) errors.leavePaymentType = "Payment type is required";
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   }, [leaveData]);
@@ -510,13 +561,19 @@ const LeavePage = () => {
         employeeId: userId,
         status: "Pending",
         createdAt: new Date().toISOString(),
+        leavePaymentType: leaveData.leavePaymentType || 'Paid',
       };
       if (!handleSubmitLeave.mutateAsync) throw new Error("usePost hook is not initialized");
       const res = await handleSubmitLeave.mutateAsync(leaveDetails);
 
       if (res.data) {
         setLeaveRequest((prev) => [
-          { ...leaveDetails, _id: res.data?.data?._id || Date.now(), status: "Pending", date: new Date(leaveDetails.date).toISOString() },
+          {
+            ...leaveDetails,
+            _id: res.data?.data?._id || Date.now(),
+            status: "Pending",
+            date: new Date(leaveDetails.date).toISOString(),
+          },
           ...prev,
         ]);
         setSnackbarMessage("Leave request submitted successfully!");
@@ -570,7 +627,7 @@ const LeavePage = () => {
 
   const handleCloseModal = useCallback(() => {
     setOpenModal(false);
-    setLeaveData({ leaveType: "", date: "", reason: "", leaveDuration: "", halfDayType: "", time: "" });
+    setLeaveData({ leaveType: "", date: "", reason: "", leaveDuration: "", halfDayType: "", time: "", leavePaymentType: "Paid" });
     setFormErrors({});
   }, []);
 
@@ -583,6 +640,7 @@ const LeavePage = () => {
       if (filters.status && item.status !== filters.status) matches = false;
       if (filters.startDate && new Date(item.date) < new Date(filters.startDate)) matches = false;
       if (filters.endDate && new Date(item.date) > new Date(filters.endDate)) matches = false;
+      if (filters.leavePaymentType && item.leavePaymentType !== filters.leavePaymentType) matches = false;
       if (filters.duration) {
         if (filters.duration === 'Full Day' && item.leaveDuration !== 'Full Day') matches = false;
         if (filters.duration === 'Morning' && (item.leaveDuration !== 'Half Day' || item.halfDayType !== 'Morning')) matches = false;

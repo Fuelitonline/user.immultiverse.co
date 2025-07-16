@@ -1,11 +1,11 @@
 import React from 'react';
 import { Card, Typography, useTheme } from '@mui/material';
-import Chart from 'react-apexcharts';
+import ReactApexChart from 'react-apexcharts';
 import { useNavigate } from 'react-router-dom';
 
 const AttendanceDonutChart = () => {
   const theme = useTheme();
-  const navigate = useNavigate(); // Initialize useNavigate hook for navigation
+  const navigate = useNavigate();
 
   const staticAttendanceData = [
     { date: '01-05', status: 'present' }, { date: '02-05', status: 'present' },
@@ -33,123 +33,141 @@ const AttendanceDonutChart = () => {
     { present: 0, absent: 0 }
   );
 
+  const colors = {
+    Present: '#4CAF50', // Soft Green for Present
+    Absent: '#FF7043', // Soft Coral for Absent
+    Remaining: '#8fcfb3', // Light Red for consistency with Chart component
+  };
+
   const chartOptions = {
     chart: {
       type: 'donut',
-      animations: { enabled: false },
-    },
-    labels: ['Present', 'Absent'],
-    colors: [
-      theme.palette.mode === 'dark' ? '#4FC3F7' : '#0288D1',
-      theme.palette.mode === 'dark' ? '#FF8A80' : '#D32F2F',
-    ],
-    legend: {
-      position: 'bottom',
-      horizontalAlign: 'center',
-      fontSize: '14px',
-      fontWeight: 600,
-      fontFamily: '"Roboto", sans-serif',
-      labels: {
-        colors: theme.palette.mode === 'dark' ? '#E0E0E0' : '#212121',
+      toolbar: {
+        show: false,
       },
-      markers: {
-        width: 12,
-        height: 12,
-        radius: 12,
+      animations: {
+        enabled: true,
+        easing: 'easeinout',
+        speed: 800,
+        animateGradients: true,
+      },
+    },
+    colors: [colors.Present, colors.Absent],
+    labels: ['Present', 'Absent'],
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '10%',
+          background: 'transparent',
+        },
       },
     },
     dataLabels: {
       enabled: false,
     },
-    plotOptions: {
-      pie: {
-        donut: {
-          size: '70%',
-          labels: {
-            show: true,
-            value: {
-              fontSize: '15px',
-              fontWeight: 700,
-              fontFamily: '"Roboto", sans-serif',
-              color: theme.palette.mode === 'dark' ? '#E0E0E0' : '#212121',
-            },
-            total: {
-              show: true,
-              label: 'Total',
-              fontSize: '15px',
-              fontWeight: 600,
-              fontFamily: '"Roboto", sans-serif',
-              color: theme.palette.mode === 'dark' ? '#E0E0E0' : '#212121',
-              formatter: () => `${attendanceCounts.present + attendanceCounts.absent}`,
-            },
-          },
-        },
-      },
+    tooltip: {
+      enabled: true,
+      followCursor: true,
+      offsetX: 10,
+      theme: 'dark',
     },
     stroke: {
-      width: 2,
-      colors: [theme.palette.mode === 'dark' ? '#424242' : '#FFFFFF'],
+      width: 0,
+      colors: ['grey'],
     },
-    responsive: [
-      {
-        breakpoint: 480,
-        options: {
-          chart: { width: 280 },
-          legend: { position: 'bottom', fontSize: '13px' },
-        },
+    legend: {
+      show: true,
+      position: 'bottom',
+      horizontalAlign: 'center',
+      labels: {
+        colors: theme.palette.text.primary,
+        fontSize: '14px',
+        fontFamily: 'Arial, sans-serif',
       },
-    ],
+      markers: {
+        width: 10,
+        height: 10,
+        radius: 0,
+        offsetX: -10,
+      },
+      offsetX: 0,
+      offsetY: 0,
+    },
+    dropShadow: {
+      enabled: true,
+      top: 5,
+      left: 5,
+      blur: 4,
+      opacity: 0.2,
+    },
+    
   };
 
   const chartSeries = [attendanceCounts.present, attendanceCounts.absent];
 
-  // Handle click to navigate to the attendance leave page
   const handleCardClick = () => {
     navigate('/profileleave');
   };
 
   return (
     <Card
-      onClick={handleCardClick} // Add click handler to navigate
+      onClick={handleCardClick}
       sx={{
-        padding: 3,
-        height: '32vh',
-        borderRadius: '12px',
-        background: '#fff',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-        transition: 'all 0.3s ease',
-        '&:hover': {
-          transform: 'scale(1.06)',
-          boxShadow: '0 8px 20px rgba(0, 0, 0, 0.12)',
-          cursor: 'pointer', // Indicate clickability
+         padding: 3,
+        height: "32vh",
+        borderRadius: "12px",
+        background: "#fff",
+        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+        transition: "all 0.3s ease",
+        "&:hover": {
+          transform: "scale(1.06)",
+          boxShadow: "0 8px 20px rgba(0, 0, 0, 0.12)",
+          cursor: "pointer", // Add pointer cursor to indicate clickability
         },
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
-      <Typography
-        sx={{
-          textAlign: 'left',
-          fontWeight: 700,
-          fontSize: '1rem',
-          color: theme.palette.mode === 'dark' ? '#E0E0E0' : '#000',
-          fontFamily: '"Roboto", sans-serif',
-          textTransform: 'uppercase',
-          mb: 2,
+      <div
+        style={{
+          height: "100%",
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "left",
+          justifyContent: "center",
         }}
       >
-        Last Month Attendance
-      </Typography>
-
-      <Chart
-        options={chartOptions}
-        series={chartSeries}
-        type="donut"
-        width={250}
-        height={150}
-      />
+        <Typography
+          sx={{
+            fontWeight: "bold",
+            color: theme.palette.text.primary,
+            textAlign: "left",
+            mb: 2,
+            fontSize: '1rem'
+          }}
+        >
+          Last Month Attendance
+        </Typography>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <ReactApexChart
+            options={chartOptions}
+            series={chartSeries}
+            type="donut"
+            width={350}
+            height={150}
+          />
+        </div>
+      </div>
     </Card>
   );
 };

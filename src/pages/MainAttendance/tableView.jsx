@@ -837,7 +837,7 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                         <Chip
                           size="small"
                           label={entry.totalWorkingTime ? formatDuration(entry.totalWorkingTime) : '00:00:00'}
-                          color={getStatusColor(entry)}
+                          color='#000'
                           sx={{
                             borderRadius: '8px',
                             fontWeight: 'medium',
@@ -848,7 +848,7 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                             border: `1px solid ${theme.palette[getStatusColor(entry)].main}`,
                             '&:hover': {
                               backgroundColor: alpha(theme.palette[getStatusColor(entry)].light, 0.4),
-                              color: theme.palette[getStatusColor(entry)].contrastText,
+                              color: '#000',
                             },
                           }}
                         />

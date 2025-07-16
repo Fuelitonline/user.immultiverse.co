@@ -139,12 +139,13 @@ const Chart = ({ data }) => {
         }}
       >
         <Typography
-          variant="h6"
+          
           sx={{
             fontWeight: "bold",
             color: theme.palette.text.primary,
             textAlign: "left",
             mb: 2,
+            fontSize: '1rem'
           }}
         >
           {chartHeading}
@@ -164,6 +165,7 @@ const Chart = ({ data }) => {
             width={350} // Use percentage width to scale with parent
             height={150} // Adjusted height to fit within 32vh
           />
+          
         </div>
       </div>
     </Paper>

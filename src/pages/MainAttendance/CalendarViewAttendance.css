@@ -63,7 +63,7 @@
 
 .rbc-day-bg {
   background: #ffffff !important;
-  transition: background 0.3s ease !important;
+  transition: all 0.3s ease !important;
   position: relative !important;
 }
 

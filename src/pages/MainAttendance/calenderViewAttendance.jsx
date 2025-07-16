@@ -84,7 +84,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
         id: event.id,
         start: new Date(event.start.date || event.start.dateTime),
         end: new Date(event.end.date || event.end.dateTime),
-        title: event.summary,
+        title: "", // Empty title to remove labels
         color: colorPalette.holiday,
       }));
     } catch (error) {
@@ -123,14 +123,12 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
       if (!entry?.day) return;
       const start = moment(entry.day).toDate();
       let color = colorPalette.absent;
-      let title = `Absent`;
+      let title = ""; // Empty title to remove labels
 
       if (entry.totalWorkingTime >= workingHours) {
         color = colorPalette.attended;
-        title = `Attended (${formatWorkingTime(entry.totalWorkingTime)})`;
       } else if (entry.totalWorkingTime > 0 && entry.totalWorkingTime < workingHours) {
         color = entry.totalWorkingTime >= halfDayThreshold ? colorPalette.attended : colorPalette.halfDay;
-        title = `Half Day (${formatWorkingTime(entry.totalWorkingTime)})`;
       }
 
       transformedEvents.push({
@@ -157,7 +155,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
           start: date.toDate(),
           end: date.toDate(),
           color: colorPalette.absent,
-          title: "Absent",
+          title: "", // Empty title to remove labels
         });
       } else if (!isWorkingDay) {
         transformedEvents.push({
@@ -165,7 +163,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
           start: date.toDate(),
           end: date.toDate(),
           color: colorPalette.weekend,
-          title: "Weekend",
+          title: "", // Empty title to remove labels
           isWeekend: true,
         });
       }
@@ -189,7 +187,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
           start: new Date(leave.date),
           end: new Date(leave.date),
           color: leave.leaveDuration === "Half Day" ? colorPalette.halfDay : colorPalette.onLeave,
-          title: leave.leaveDuration === "Half Day" ? "Half Day Leave" : "On Leave",
+          title: "", // Empty title to remove labels
         });
       });
     }
@@ -239,7 +237,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
         start: moment(date).toDate(),
         end: moment(date).toDate(),
         color: colorPalette.sandwichLeave,
-        title: "Sandwich Leave",
+        title: "", // Empty title to remove labels
         isSandwichLeave: true,
       });
     });
@@ -282,7 +280,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
       border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'}`,
       borderRadius: event.isWeekend || event.isSandwichLeave ? '50%' : '4px',
       padding: event.isWeekend || event.isSandwichLeave ? '0' : '2px',
-      fontSize: event.isWeekend || event.isSandwichLeave ? '0' : '0.8rem',
+      fontSize: '0', // Hide text by setting font size to 0
       fontWeight: 600,
       fontFamily: "'Poppins', sans-serif",
       color: theme.palette.getContrastText(event.color || '#ffffff'),
@@ -309,7 +307,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
       return {
         style: {
           backgroundColor: event.color,
-          opacity: 0.8,
+          opacity: 0.5,
           transition: 'background 0.3s ease',
         },
       };
@@ -351,8 +349,8 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
           right: 0,
           bottom: 0,
           background: theme.palette.mode === 'dark'
-            ? `url(${darkLogo}) no-repeat center center, rgba(50, 50, 50, 0.3)`
-            : `url(${lightLogo}) no-repeat center center, rgba(255, 255, 255, 0.3)`,
+            ? `url(${darkLogo}) no-repeat center center, rgba(50, 50, 50, 0.1)`
+            : `url(${lightLogo}) no-repeat center center, rgba(255, 255, 255, 0.1)`,
           backgroundSize: '30%',
           backgroundPosition: 'center',
           backgroundBlendMode: 'overlay',
@@ -364,7 +362,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
             left: 0,
             right: 0,
             bottom: 0,
-            background: theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.2)',
+            background: theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)',
             zIndex: -1,
           },
         }}
@@ -463,11 +461,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
                         opacity: 0.15,
                       },
                       '& .rbc-event': {
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                          transform: 'scale(1.05)',
-                          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
-                        },
+                        display: 'none', // Hide event labels
                       },
                       '&::-webkit-scrollbar': {
                         width: '6px',
@@ -517,7 +511,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
                     components={{
                       event: ({ event }) => (
                         <Tooltip title={event.title} arrow>
-                          <div>{event.title}</div>
+                          <div style={{ display: 'none' }}>{event.title}</div> {/* Hide event labels */}
                         </Tooltip>
                       ),
                     }}

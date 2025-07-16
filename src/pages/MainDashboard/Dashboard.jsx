@@ -47,28 +47,31 @@ function DashboardPage() {
   }, [emp]);
 
   useEffect(() => {
-    if (leaves?.data?.data) {
-      const leaveData = leaves?.data?.data?.leaveData;
-      const setAbleData = [
-        {
-          name: "Annual Leave",
-          value: leaveData?.annual || 0,
-          remaining: (leaveData?.remainingCasualLeave || 0) + (leaveData?.remainingSickLeave || 0),
-        },
-        {
-          name: "Sick Leave",
-          value: leaveData?.sick || 0,
-          remaining: leaveData?.remainingSickLeave || 0,
-        },
-        {
-          name: "Casual Leave",
-          value: leaveData?.casual || 0,
-          remaining: leaveData?.remainingCasualLeave || 0,
-        },
-      ];
-      setLeaveData(setAbleData);
-    }
-  }, [leaves]);
+  const leaveData = leaves?.data?.data?.leaveData;
+
+  const setAbleData = [
+    {
+      name: "Annual Leave",
+      value: leaveData?.annual || 0,
+      remaining:
+        (leaveData?.remainingCasualLeave || 0) + (leaveData?.remainingSickLeave || 0),
+    },
+    {
+      name: "Sick Leave",
+      value: leaveData?.sick || 0,
+      remaining: leaveData?.remainingSickLeave || 0,
+    },
+    {
+      name: "Casual Leave",
+      value: leaveData?.casual || 0,
+      remaining: leaveData?.remainingCasualLeave || 0,
+    },
+  ];
+
+  // Set even if API fails or leaveData is undefined
+  setLeaveData(setAbleData);
+}, [leaves]);
+
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Not Available';
@@ -102,7 +105,7 @@ function DashboardPage() {
       }}
     >
       {/* Profile Navigation */}
-      <Box sx={{ width: '100%', mb: 2 }}>
+      <Box sx={{ width: '100%', mb: 3 }}>
         <Grid container spacing={2} sx={{ width: '100%', position: 'sticky', top: 0, zIndex: 1000 }}>
           <Grid item xs={12} container justifyContent='flex-end'>
             <ProfileNav />
@@ -118,7 +121,7 @@ function DashboardPage() {
           </Box>
         ) : (
           <Grid container spacing={4} sx={{ maxWidth: '1200px' }}>
-            <Grid item xs={12}>
+            <Grid item xs={12} sx={{mb: 3}}>
               <EmployeeInfoCards
                 empDetails={empDetails}
                 canViewSensitive={canViewSensitive}
@@ -127,7 +130,8 @@ function DashboardPage() {
                 difference={difference}
               />
             </Grid>
-            <Grid container item xs={12} spacing={4}>
+
+            <Grid container item xs={12} spacing={4} sx={{mb: 3}}>
               {leaveData.map((item, index) => (
                 <Grid item xs={12} sm={6} md={3} key={index}>
                   <Chart data={item} />
