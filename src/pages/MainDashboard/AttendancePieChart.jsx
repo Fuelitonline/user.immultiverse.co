@@ -1,9 +1,11 @@
 import React from 'react';
 import { Card, Typography, useTheme } from '@mui/material';
 import Chart from 'react-apexcharts';
+import { useNavigate } from 'react-router-dom';
 
 const AttendanceDonutChart = () => {
   const theme = useTheme();
+  const navigate = useNavigate(); // Initialize useNavigate hook for navigation
 
   const staticAttendanceData = [
     { date: '01-05', status: 'present' }, { date: '02-05', status: 'present' },
@@ -34,7 +36,7 @@ const AttendanceDonutChart = () => {
   const chartOptions = {
     chart: {
       type: 'donut',
-      animations: { enabled: false }, // Removed animation
+      animations: { enabled: false },
     },
     labels: ['Present', 'Absent'],
     colors: [
@@ -57,7 +59,7 @@ const AttendanceDonutChart = () => {
       },
     },
     dataLabels: {
-      enabled: false, // Disabled to remove percentage labels
+      enabled: false,
     },
     plotOptions: {
       pie: {
@@ -65,12 +67,10 @@ const AttendanceDonutChart = () => {
           size: '70%',
           labels: {
             show: true,
-            
             value: {
               fontSize: '15px',
               fontWeight: 700,
               fontFamily: '"Roboto", sans-serif',
-              
               color: theme.palette.mode === 'dark' ? '#E0E0E0' : '#212121',
             },
             total: {
@@ -103,8 +103,14 @@ const AttendanceDonutChart = () => {
 
   const chartSeries = [attendanceCounts.present, attendanceCounts.absent];
 
+  // Handle click to navigate to the attendance leave page
+  const handleCardClick = () => {
+    navigate('/profileleave');
+  };
+
   return (
     <Card
+      onClick={handleCardClick} // Add click handler to navigate
       sx={{
         padding: 3,
         height: '32vh',
@@ -115,6 +121,7 @@ const AttendanceDonutChart = () => {
         '&:hover': {
           transform: 'scale(1.06)',
           boxShadow: '0 8px 20px rgba(0, 0, 0, 0.12)',
+          cursor: 'pointer', // Indicate clickability
         },
         display: 'flex',
         flexDirection: 'column',
@@ -123,7 +130,6 @@ const AttendanceDonutChart = () => {
       }}
     >
       <Typography
-        // variant="h6"
         sx={{
           textAlign: 'left',
           fontWeight: 700,
@@ -131,7 +137,7 @@ const AttendanceDonutChart = () => {
           color: theme.palette.mode === 'dark' ? '#E0E0E0' : '#000',
           fontFamily: '"Roboto", sans-serif',
           textTransform: 'uppercase',
-          mb: 2
+          mb: 2,
         }}
       >
         Last Month Attendance
@@ -141,7 +147,7 @@ const AttendanceDonutChart = () => {
         options={chartOptions}
         series={chartSeries}
         type="donut"
-        width={250} // Reduced width slightly to fit better within centered layout
+        width={250}
         height={150}
       />
     </Card>

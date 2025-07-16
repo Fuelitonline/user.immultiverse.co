@@ -73,7 +73,7 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
 
   const formatDuration = (durationHours) => {
     if (!durationHours || isNaN(durationHours)) return '00:00:00';
-    const totalSeconds = durationHours * 3600;
+    const totalSeconds = durationHours * 3600; // Convert hours to seconds
     const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
     const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
     const seconds = String(Math.floor(totalSeconds % 60)).padStart(2, '0');
@@ -118,7 +118,7 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
     });
 
     setEntries(sortedEntries);
-    setTotalWorkTime(formatDuration((dailyRecords.data.data.totalWorkTime || 0) * 3600000));
+    setTotalWorkTime(formatDuration(dailyRecords.data.data.totalWorkTime || 0));
     setLoading(false);
   }, [dailyRecords, fetchError, sortConfig]);
 
@@ -135,24 +135,33 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
       const startTime = DateTime.fromFormat(start || '09:00', 'HH:mm');
       const endTime = DateTime.fromFormat(end || '17:00', 'HH:mm');
       const duration = endTime.diff(startTime, 'seconds').seconds;
-      return duration > 0 ? duration : 8 * 3600;
+      return duration > 0 ? duration : 8 * 3600; // Default to 8 hours (28,800 seconds) if invalid
     };
 
-    const dailyWorkTime = workingHours
+    const dailyWorkSeconds = workingHours
       ? calculateDailyWorkTime(workingHours.start, workingHours.end)
-      : 8 * 3600;
+      : 8 * 3600; // Default to 8 hours in seconds
+
     const [hours, minutes, seconds] = totalWorkTime.split(':').map(num => Number(num) || 0);
     const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-    const fullWorkDays = Math.floor(totalSeconds / dailyWorkTime);
-    const remainingSeconds = totalSeconds % dailyWorkTime;
-    const remainingHours = Math.floor(remainingSeconds / 3600);
-    const remainingMinutes = Math.floor((remainingSeconds % 3600) / 60);
-    const remainingSecondsLeft = Math.floor(remainingSeconds % 60);
 
+    const fullWorkDays = Math.floor(totalSeconds / dailyWorkSeconds);
+    const remainingSecondsAfterDays = totalSeconds % dailyWorkSeconds; // Correct leftover time
+    const remainingHours = Math.floor(remainingSecondsAfterDays / 3600);
+    const remainingMinutes = Math.floor((remainingSecondsAfterDays % 3600) / 60);
+    const remainingSeconds = remainingSecondsAfterDays % 60;
+
+    // Debug log to verify calculations
+    console.log('Debug - totalSeconds:', totalSeconds, 'dailyWorkSeconds:', dailyWorkSeconds, 'fullWorkDays:', fullWorkDays, 'remainingSecondsAfterDays:', remainingSecondsAfterDays, 'remainingHours:', remainingHours, 'remainingMinutes:', remainingMinutes, 'remainingSeconds:', remainingSeconds);
+
+    // Always include hours, minutes, and seconds in remaining time
+    let result = '';
     if (fullWorkDays > 0) {
-      return `${fullWorkDays} day${fullWorkDays > 1 ? 's' : ''} ${remainingHours}h ${remainingMinutes}m ${remainingSecondsLeft}s`;
+      result += `${fullWorkDays} day${fullWorkDays > 1 ? 's' : ''}`;
     }
-    return `${remainingHours}h ${remainingMinutes}m ${remainingSecondsLeft}s`;
+    result += (fullWorkDays > 0 ? ' ' : '') + `${remainingHours}h ${remainingMinutes}m ${remainingSeconds}s`;
+
+    return result.trim();
   };
 
   const workDaysResult = convertToWorkDays(

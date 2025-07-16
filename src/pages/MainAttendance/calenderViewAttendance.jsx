@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Calendar, momentLocalizer } from "react-big-calendar";
 import moment from "moment";
 import PropTypes from 'prop-types';
@@ -10,6 +10,7 @@ import {
   Fade,
   useTheme,
   Card,
+  Tooltip,
 } from "@mui/material";
 import { CalendarToday as CalendarIcon } from '@mui/icons-material';
 import { DateTime } from "luxon";
@@ -24,6 +25,15 @@ const darkLogo = "https://mutliverse-app-version.s3.ap-south-1.amazonaws.com/Mul
 
 moment.locale("en-GB");
 const localizer = momentLocalizer(moment);
+
+// Utility function to format hours into hours and minutes
+const formatWorkingTime = (hours) => {
+  if (!hours) return "0h 0m";
+  const totalMinutes = Math.round(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h}h ${m}m`;
+};
 
 const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '320px', md: '400px' }, width: '100%' } }) => {
   const theme = useTheme();
@@ -45,17 +55,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
   }, { enabled: !!id });
   const { data: policyData, error: policyError } = useGet("company/policy/attendece-get", { employeeId: id }, { enabled: !!id });
 
-  useEffect(() => {
-    if (policyData?.data?.data) {
-      setPolicy(policyData.data.data);
-    }
-    if (policyError) {
-      console.error("Policy fetch error:", policyError);
-      setError("Failed to load policy data");
-    }
-  }, [policyData, policyError]);
-
-  const [policy, setPolicy] = useState({});
+  const [policy, setPolicy] = useState({ workingHours: 8, workingDays: {} });
 
   const colorPalette = {
     attended: "#10b981",
@@ -67,12 +67,22 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
     onLeave: "#facc15",
   };
 
-  const fetchHolidays = async (apiKey) => {
+  useEffect(() => {
+    if (policyData?.data?.data) {
+      setPolicy(policyData.data.data);
+    }
+    if (policyError) {
+      setError("Failed to load policy data");
+    }
+  }, [policyData, policyError]);
+
+  const fetchHolidays = useCallback(async (apiKey) => {
+    const url = `https://www.googleapis.com/calendar/v3/calendars/en.indian%23holiday%40group.v.calendar.google.com/events?key=${apiKey}`;
     try {
       const response = await axios.get(url);
       return response.data.items.map((event) => ({
         id: event.id,
-        start: new Date(event.start.date || event?.start.dateTime),
+        start: new Date(event.start.date || event.start.dateTime),
         end: new Date(event.end.date || event.end.dateTime),
         title: event.summary,
         color: colorPalette.holiday,
@@ -81,14 +91,13 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
       console.error("Failed to fetch holidays:", error);
       return [];
     }
-  };
+  }, []);
 
-  const processRecords = async () => {
+  const processRecords = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     if (!dailyRecords || recordsError || !policy) {
-      console.error("Data issues:", { recordsError, policy });
       setError("Failed to load attendance data");
       setLoading(false);
       setEvents([]);
@@ -96,29 +105,32 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
     }
 
     const transformedEvents = [];
-    const absentDates = [];
+    const absentDates = new Set();
     const today = moment().startOf("day");
-
     const records = dailyRecords.data?.data?.records || [];
-    console.log("Records:", records);
 
     if (!Array.isArray(records)) {
-      console.error("Records is not an array:", records);
       setError("Invalid attendance data format");
       setLoading(false);
       setEvents([]);
       return;
     }
 
+    // Process attendance records
+    const workingHours = policy.workingHours || 8;
+    const halfDayThreshold = workingHours * 0.5; // Half day is less than 50% of working hours
     records.forEach((entry) => {
       if (!entry?.day) return;
-      const start = new Date(entry.day);
+      const start = moment(entry.day).toDate();
       let color = colorPalette.absent;
+      let title = `Absent`;
 
-      if (entry.totalWorkingTime > 0) {
+      if (entry.totalWorkingTime >= workingHours) {
         color = colorPalette.attended;
-      } else if (entry.totalWorkingTime < (policy.workingHours || 8)) {
-        color = colorPalette.halfDay;
+        title = `Attended (${formatWorkingTime(entry.totalWorkingTime)})`;
+      } else if (entry.totalWorkingTime > 0 && entry.totalWorkingTime < workingHours) {
+        color = entry.totalWorkingTime >= halfDayThreshold ? colorPalette.attended : colorPalette.halfDay;
+        title = `Half Day (${formatWorkingTime(entry.totalWorkingTime)})`;
       }
 
       transformedEvents.push({
@@ -126,25 +138,26 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
         start,
         end: start,
         color,
-        title: "",
+        title,
       });
     });
 
+    // Identify absent and weekend days
     const attendanceDays = new Set(records.map((entry) => entry.day));
     const startDate = records.length > 0 ? moment.min(records.map((entry) => moment(entry.day))) : today;
 
-    for (let date = today.clone(); date.isAfter(startDate); date.subtract(1, "days")) {
+    for (let date = today.clone(); date.isAfter(startDate) || date.isSame(startDate, 'day'); date.subtract(1, "days")) {
       const formattedDate = date.format("YYYY-MM-DD");
-      const isWorkingDay = policy?.workingDays?.[date.day()];
+      const isWorkingDay = policy?.workingDays?.[date.day()] ?? true;
 
       if (isWorkingDay && !attendanceDays.has(formattedDate)) {
-        absentDates.push(formattedDate);
+        absentDates.add(formattedDate);
         transformedEvents.push({
           id: formattedDate,
           start: date.toDate(),
           end: date.toDate(),
           color: colorPalette.absent,
-          title: "",
+          title: "Absent",
         });
       } else if (!isWorkingDay) {
         transformedEvents.push({
@@ -152,39 +165,47 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
           start: date.toDate(),
           end: date.toDate(),
           color: colorPalette.weekend,
-          title: "",
+          title: "Weekend",
           isWeekend: true,
         });
       }
     }
 
+    // Process sandwich leaves
     handleSandwichLeaves(transformedEvents, absentDates);
 
+    // Process approved or pending leaves
     if (leaves?.data?.data?.leaveRequests) {
       leaves.data.data.leaveRequests.forEach((leave) => {
-        if (!leave?.date) return;
-        if (leave.status === "Approved" || leave.status === "Pending") {
-          transformedEvents.push({
-            id: leave._id,
-            start: new Date(leave.date),
-            end: new Date(leave.date),
-            color: leave.leaveDuration === "Half Day" ? colorPalette.halfDay : colorPalette.onLeave,
-            title: "",
-          });
+        if (!leave?.date || !["Approved", "Pending"].includes(leave.status)) return;
+        const dateStr = moment(leave.date).format("YYYY-MM-DD");
+        // Remove existing attendance event to avoid overlap
+        const index = transformedEvents.findIndex((e) => moment(e.start).format("YYYY-MM-DD") === dateStr);
+        if (index !== -1) {
+          transformedEvents.splice(index, 1);
         }
+        transformedEvents.push({
+          id: leave._id,
+          start: new Date(leave.date),
+          end: new Date(leave.date),
+          color: leave.leaveDuration === "Half Day" ? colorPalette.halfDay : colorPalette.onLeave,
+          title: leave.leaveDuration === "Half Day" ? "Half Day Leave" : "On Leave",
+        });
       });
     }
 
+    // Fetch holidays (replace with your actual Google Calendar API key)
     const holidayEvents = await fetchHolidays("YOUR_GOOGLE_CALENDAR_API_KEY");
-    console.log("Events:", [...transformedEvents, ...holidayEvents]);
     setEvents([...transformedEvents, ...holidayEvents]);
     setLoading(false);
-  };
+  }, [dailyRecords, leaves, policy, recordsError, fetchHolidays]);
 
-  const handleSandwichLeaves = (events, absentDates) => {
+  const handleSandwichLeaves = useCallback((events, absentDates) => {
     const sandwichLeaveDates = new Set();
     const nonWorkingDays = policy?.workingDays
-      ? Object.keys(policy.workingDays).filter((day) => !policy.workingDays[day]).map(Number)
+      ? Object.keys(policy.workingDays)
+          .filter((day) => !policy.workingDays[day])
+          .map(Number)
       : [];
 
     if (nonWorkingDays.length > 0) {
@@ -192,97 +213,95 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
         const today = moment();
         const weekStart = today.clone().startOf('isoWeek');
         const nonWorkingDate = weekStart.clone().add(nonWorkingDay, 'days');
-        const dayBefore = nonWorkingDate.clone().subtract(2, 'days');
-        const dayAfter = nonWorkingDate.clone().add(0, 'days');
+        const dayBefore = nonWorkingDate.clone().subtract(1, 'days');
+        const dayAfter = nonWorkingDate.clone().add(1, 'days');
+
         const nonWorkingDateStr = nonWorkingDate.format('YYYY-MM-DD');
         const dayBeforeStr = dayBefore.format('YYYY-MM-DD');
         const dayAfterStr = dayAfter.format('YYYY-MM-DD');
-        const currentNonWorkingDate = dayAfter.clone().subtract(1, 'days');
-        const currentNonWorkingDateStr = currentNonWorkingDate.format('YYYY-MM-DD');
 
-        if (absentDates.includes(dayBeforeStr) && absentDates.includes(dayAfterStr)) {
+        if (absentDates.has(dayBeforeStr) && absentDates.has(dayAfterStr)) {
           sandwichLeaveDates.add(nonWorkingDateStr);
           sandwichLeaveDates.add(dayBeforeStr);
           sandwichLeaveDates.add(dayAfterStr);
-          sandwichLeaveDates.add(currentNonWorkingDateStr);
         }
       });
     }
 
     sandwichLeaveDates.forEach((date) => {
+      // Remove existing events for sandwich leave dates to avoid duplicates
+      const index = events.findIndex((e) => moment(e.start).format('YYYY-MM-DD') === date);
+      if (index !== -1) {
+        events.splice(index, 1);
+      }
       events.push({
-        id: date,
+        id: `sandwich-${date}`,
         start: moment(date).toDate(),
         end: moment(date).toDate(),
         color: colorPalette.sandwichLeave,
-        title: "",
+        title: "Sandwich Leave",
         isSandwichLeave: true,
       });
     });
-  };
+  }, [policy, colorPalette.sandwichLeave]);
 
   useEffect(() => {
     processRecords();
-  }, [dailyRecords, currentYear, currentMonth, policy, leaves]);
+  }, [processRecords]);
 
-  const handleNavigate = (date) => {
+  const handleNavigate = useCallback((date) => {
     setCurrentMonth(date.getMonth() + 1);
     setCurrentYear(date.getFullYear());
     getTimes(date.getMonth() + 1, date.getFullYear());
-  };
+  }, [getTimes]);
 
-  const handleToday = () => {
+  const handleToday = useCallback(() => {
     const today = new Date();
     setCurrentMonth(today.getMonth() + 1);
     setCurrentYear(today.getFullYear());
     getTimes(today.getMonth() + 1, today.getFullYear());
-  };
+  }, [getTimes]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     const newDate = moment({ year: currentYear, month: currentMonth - 1 }).add(1, 'month');
     setCurrentMonth(newDate.month() + 1);
     setCurrentYear(newDate.year());
     getTimes(newDate.month() + 1, newDate.year());
-  };
+  }, [currentMonth, currentYear, getTimes]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     const newDate = moment({ year: currentYear, month: currentMonth - 1 }).subtract(1, 'month');
     setCurrentMonth(newDate.month() + 1);
     setCurrentYear(newDate.year());
     getTimes(newDate.month() + 1, newDate.year());
-  };
+  }, [currentMonth, currentYear, getTimes]);
 
-  const eventPropGetter = (event) => {
-    if (!event.isWeekend) {
-      return {
-        style: {
-          display: 'none', // Hide non-weekend events as dots
-        },
-      };
-    }
-    return {
-      style: {
-        backgroundColor: event.color,
-        border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'}`,
-        borderRadius: '50%',
-        padding: '0',
-        fontSize: '0',
-        fontWeight: 600,
-        fontFamily: "'Poppins', sans-serif",
-        color: theme.palette.getContrastText(event.color || '#ffffff'),
-        boxShadow: '0 3px 10px rgba(0, 0, 0, 0.2)',
-        transition: 'all 0.3s ease',
-        position: 'absolute',
-        top: '40px',
-        right: '2px',
-        minHeight: '8px',
-        width: '8px',
-        height: '8px',
-      },
+  const eventPropGetter = useCallback((event) => {
+    const style = {
+      backgroundColor: event.color,
+      border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'}`,
+      borderRadius: event.isWeekend || event.isSandwichLeave ? '50%' : '4px',
+      padding: event.isWeekend || event.isSandwichLeave ? '0' : '2px',
+      fontSize: event.isWeekend || event.isSandwichLeave ? '0' : '0.8rem',
+      fontWeight: 600,
+      fontFamily: "'Poppins', sans-serif",
+      color: theme.palette.getContrastText(event.color || '#ffffff'),
+      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)',
+      transition: 'all 0.3s ease',
     };
-  };
 
-  const dayPropGetter = (date) => {
+    if (event.isWeekend || event.isSandwichLeave) {
+      style.width = '8px';
+      style.height = '8px';
+      style.position = 'absolute';
+      style.top = '40px';
+      style.right = '2px';
+    }
+
+    return { style };
+  }, [theme.palette]);
+
+  const dayPropGetter = useCallback((date) => {
     const formattedDate = moment(date).format("YYYY-MM-DD");
     const event = events.find((e) => moment(e.start).format("YYYY-MM-DD") === formattedDate && !e.isWeekend);
 
@@ -290,22 +309,19 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
       return {
         style: {
           backgroundColor: event.color,
+          opacity: 0.8,
           transition: 'background 0.3s ease',
-          '&:hover': {
-            filter: 'brightness(85%)',
-          },
-          opacity: 0.8, // Slight transparency to allow logo visibility
         },
       };
     }
 
     return {
       style: {
-        backgroundColor: 'transparent', // Ensure background is transparent
+        backgroundColor: 'transparent',
         transition: 'background 0.3s ease',
       },
     };
-  };
+  }, [events]);
 
   return (
     <Card
@@ -321,7 +337,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
         },
         overflow: 'hidden',
         width: '100%',
-        minHeight: { xs: '320px', md: '400px' },
+        minHeight: size.height,
         border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'}`,
         backdropFilter: 'blur(12px)',
         position: 'relative',
@@ -377,7 +393,6 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
                   <CalendarIcon sx={{ color: theme.palette.primary.main, fontSize: '2rem' }} />
                   Attendance Calendar
                 </Typography>
-                
                 {error && (
                   <Typography
                     variant="body2"
@@ -449,7 +464,6 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
                       },
                       '& .rbc-event': {
                         transition: 'all 0.3s ease',
-                        borderRadius: '50%',
                         '&:hover': {
                           transform: 'scale(1.05)',
                           boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
@@ -500,6 +514,13 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
                     style={{ height: size.height, width: '100%' }}
                     step={60}
                     timeslots={1}
+                    components={{
+                      event: ({ event }) => (
+                        <Tooltip title={event.title} arrow>
+                          <div>{event.title}</div>
+                        </Tooltip>
+                      ),
+                    }}
                   />
                 </Box>
               </Grid>
@@ -517,13 +538,8 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
                           overflowX: 'auto',
                           whiteSpace: 'nowrap',
                           paddingBottom: '8px',
-                          // Hide scrollbar for WebKit browsers (Chrome, Safari)
-                          '&::-webkit-scrollbar': {
-                            display: 'none',
-                          },
-                          // Hide scrollbar for Firefox
+                          '&::-webkit-scrollbar': { display: 'none' },
                           scrollbarWidth: 'none',
-                          // Hide scrollbar for IE/Edge
                           '-ms-overflow-style': 'none',
                         }}
                       >
@@ -534,9 +550,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
                             alignItems="center"
                             sx={{
                               transition: 'all 0.3s ease',
-                              '&:hover': {
-                                transform: 'translateY(-2px)',
-                              },
+                              '&:hover': { transform: 'translateY(-2px)' },
                               flexShrink: 0,
                               whiteSpace: 'nowrap',
                             }}

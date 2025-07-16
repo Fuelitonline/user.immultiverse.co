@@ -50,7 +50,7 @@ function ProfileNav() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login'); // Redirect to login page after logout
+    navigate('/login');
     handleMenuClose();
   };
 
@@ -315,6 +315,7 @@ function ProfileNav() {
       <Dialog
         open={showModeDialog}
         onClose={handleModeDialogClose}
+        scroll="body"
         TransitionComponent={Fade}
         TransitionProps={{ timeout: 400 }}
         BackdropProps={{
@@ -333,6 +334,8 @@ function ProfileNav() {
             maxWidth: '600px',
             overflow: 'hidden',
             margin: isSmDown ? '1rem' : '2rem',
+            position: 'absolute',
+            top: '1rem',
           },
         }}
       >
@@ -421,6 +424,7 @@ function ProfileNav() {
                     Learning Management System
                   </Typography>
                 </Box>
+        
               </Link>
             </Grid>
             <Grid item xs={6}>

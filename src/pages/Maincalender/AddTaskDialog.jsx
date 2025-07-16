@@ -106,12 +106,11 @@ function AddTaskDialog({
     formData.append('file', file);
     
     try {
-      const tokenDate = localStorage.getItem('authToken');
       const config = {
         headers: {
           'Content-Type': 'multipart/form-data',
-          ...(tokenDate && { Authorization: `Bearer ${tokenDate}` }),
         },
+        withCredentials: true,
       };
       
       await axios.post(`${server_url}/emplyoee/daily-work/create`, formData, config);
@@ -246,6 +245,7 @@ function AddTaskDialog({
             color: selectedTab === 0 ? '#6366f1' : '#6b7280',
             fontSize: '0.9rem',
             px: 2,
+            // minHeight:3,
             minHeight: '48px'
           }}
         />
@@ -257,7 +257,7 @@ function AddTaskDialog({
             textTransform: 'none',
             fontWeight: 600,
             color: selectedTab === 1 ? '#6366f1' : '#6b7280',
-            fontSize: '0.9rem',
+            fontSize:  '0.9rem',
             px: 2,
             minHeight: '48px'
           }}

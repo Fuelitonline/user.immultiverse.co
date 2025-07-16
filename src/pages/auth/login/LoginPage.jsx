@@ -72,7 +72,7 @@ function LoginPage({ onLoginSuccess }) {
         login(res.data.message?.data, res.data.message?.token);
         setTimeout(() => {
           toast.success("Login successful");
-          navigate("/profiledashboard");
+          navigate("/");
           setLoading(false);
         }, 2000);
       } else {

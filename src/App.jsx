@@ -120,7 +120,7 @@ const App = () => {
       ) : (
         <>
           <OfflineAlert />
-          {/* {(isAuth?.error?.message ===  "Invalid or expired token." || isAuth?.error?.message ===  'Authentication  is required.' )  ? <TokenExpire/> : null} */}
+         {(isAuth?.error?.message ===  "Invalid or expired token." || isAuth?.error?.message ===  'Authentication  is required.' ) && (location.pathname !== '/login' && location.pathname !== '/register') ? <TokenExpire/> : null}
           <Nav />
           <Routes>
             <Route path="/" element={<PrivateRoute>< DashboardPage/></PrivateRoute>} />
@@ -131,7 +131,7 @@ const App = () => {
             <Route path="/profilepayroll" element={<PrivateRoute>< PayrollPage/></PrivateRoute>} />
             <Route path="/calendar" element={<PrivateRoute><MainCalender /></PrivateRoute>} />
             <Route path="/register" element={<RagisterUser />} />
-           
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/profilechange-password" element={< ChangePassword/> }/>
             <Route path="/employees/Attendance" element={< EmployeeTable/>}/>
             <Route path="/employees/Departments" element={<Departments />}/>

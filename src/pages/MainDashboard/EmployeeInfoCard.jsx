@@ -2,9 +2,10 @@ import { Box, Grid, Typography, Paper, Table, TableBody, TableCell, TableContain
 import React, { useState } from 'react';
 import { CalendarMonth, WorkHistory, Badge, AttachMoney, Close } from '@mui/icons-material';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 // Styled InfoCard with glassmorphism design
-const InfoCard = ({ icon, label, value, theme, animationProps, cardType, onIconClick }) => {
+const InfoCard = ({ icon, label, value, theme, animationProps, cardType, onCardClick }) => {
   const getCardStyle = () => {
     switch (cardType) {
       case 'joinDate':
@@ -48,6 +49,7 @@ const InfoCard = ({ icon, label, value, theme, animationProps, cardType, onIconC
       initial={animationProps.initial}
       animate={{ opacity: 1, x: 0, y: 0 }}
       transition={{ duration: 0.8, ease: 'easeOut', delay: animationProps.delay }}
+      onClick={onCardClick}
       sx={{
         p: 2.5,
         borderRadius: '20px',
@@ -64,6 +66,7 @@ const InfoCard = ({ icon, label, value, theme, animationProps, cardType, onIconC
         position: 'relative',
         overflow: 'hidden',
         transition: 'all 0.3s ease',
+        cursor: 'pointer',
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: cardStyle.hoverShadow,
@@ -106,9 +109,9 @@ const InfoCard = ({ icon, label, value, theme, animationProps, cardType, onIconC
       </Box>
       <Box
         component={motion.div}
-        whileHover={{ scale: 1.15, rotate: 10 }}
-        transition={{ duration: 0.3 }}
-        onClick={onIconClick}
+        whileHover={{ scale: 1.15, rotate: 10, y: 10 }}
+        whileTap={{ scale: 0.95 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
         sx={{
           position: 'absolute',
           right: '15px',
@@ -121,7 +124,6 @@ const InfoCard = ({ icon, label, value, theme, animationProps, cardType, onIconC
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1,
-          cursor: 'pointer',
         }}
       >
         {React.cloneElement(icon, { sx: { fontSize: '2.5rem', color: '#fff' } })}
@@ -289,13 +291,18 @@ const JoinDateTable = ({ empDetails, formatDate, onClose }) => {
 
 const EmployeeInfoCards = ({ empDetails, canViewSensitive, formatDate, formatCurrency, difference, theme }) => {
   const [showJoinDateTable, setShowJoinDateTable] = useState(false);
+  const navigate = useNavigate();
 
   const handleJoinDateClick = () => {
     setShowJoinDateTable(!showJoinDateTable);
   };
 
-  // Current date and time (01:45 PM IST on Friday, July 11, 2025)
-  const currentDate = new Date('2025-07-11T13:45:00+05:30');
+  const handleNavigateToProfile = () => {
+    navigate('/profile');
+  };
+
+  // Current date and time (03:02 PM IST on Tuesday, July 15, 2025)
+  const currentDate = new Date('2025-07-15T15:02:00+05:30');
   const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
   const currentDay = currentDate.getDate();
   const currentYear = currentDate.getFullYear();
@@ -333,7 +340,7 @@ const EmployeeInfoCards = ({ empDetails, canViewSensitive, formatDate, formatCur
             theme={theme}
             animationProps={{ initial: { opacity: 0, x: -50 }, delay: 0.2 }}
             cardType="joinDate"
-            onIconClick={handleJoinDateClick}
+            onCardClick={handleJoinDateClick}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -357,6 +364,7 @@ const EmployeeInfoCards = ({ empDetails, canViewSensitive, formatDate, formatCur
             theme={theme}
             animationProps={{ initial: { opacity: 0, y: 50 }, delay: 0.4 }}
             cardType="experience"
+            onCardClick={handleNavigateToProfile}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -367,6 +375,7 @@ const EmployeeInfoCards = ({ empDetails, canViewSensitive, formatDate, formatCur
             theme={theme}
             animationProps={{ initial: { opacity: 0, x: 50 }, delay: 0.6 }}
             cardType="employeeId"
+            onCardClick={handleNavigateToProfile}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -382,6 +391,7 @@ const EmployeeInfoCards = ({ empDetails, canViewSensitive, formatDate, formatCur
             theme={theme}
             animationProps={{ initial: { opacity: 0, y: 50 }, delay: 0.8 }}
             cardType="payroll"
+            onCardClick={handleNavigateToProfile}
           />
         </Grid>
       </Grid>

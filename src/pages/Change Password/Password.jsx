@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Container,
@@ -21,7 +20,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import EmailIcon from '@mui/icons-material/Email';
 import { motion } from 'framer-motion';
-import ProfileNav from '../../components/user/profiveNav'; // Assuming ProfileNav is a custom component
+import ProfileNav from '../../components/user/profiveNav';
 
 // Animation variants for headings
 const headingVariants = {
@@ -55,7 +54,6 @@ const ChangePassword = () => {
   });
   const [forgotPasswordData, setForgotPasswordData] = useState({
     email: '',
-    otp: '',
     newPassword: '',
     confirmPassword: '',
   });
@@ -68,7 +66,6 @@ const ChangePassword = () => {
     forgotNew: false,
     forgotConfirm: false,
   });
-  const [forgotPasswordStep, setForgotPasswordStep] = useState(null); // null, 'email', 'otp', 'reset'
   const [openModal, setOpenModal] = useState(false);
 
   const handleChange = (e) => {
@@ -79,7 +76,6 @@ const ChangePassword = () => {
 
   const handleForgotPasswordChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'otp' && !/^\d{0,6}$/.test(value)) return; // Restrict OTP to 6 digits
     setForgotPasswordData({ ...forgotPasswordData, [name]: value });
     setForgotPasswordErrors({ ...forgotPasswordErrors, [name]: '' });
   };
@@ -96,24 +92,10 @@ const ChangePassword = () => {
     return Object.keys(tempErrors).length === 0;
   };
 
-  const validateEmail = () => {
+  const validateForgotPassword = () => {
     let tempErrors = {};
     if (!forgotPasswordData.email) tempErrors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(forgotPasswordData.email)) tempErrors.email = 'Invalid email address';
-    setForgotPasswordErrors(tempErrors);
-    return Object.keys(tempErrors).length === 0;
-  };
-
-  const validateOtp = () => {
-    let tempErrors = {};
-    if (!forgotPasswordData.otp) tempErrors.otp = 'OTP is required';
-    else if (forgotPasswordData.otp.length !== 6) tempErrors.otp = 'OTP must be a 6-digit number';
-    setForgotPasswordErrors(tempErrors);
-    return Object.keys(tempErrors).length === 0;
-  };
-
-  const validateResetPassword = () => {
-    let tempErrors = {};
     if (!forgotPasswordData.newPassword) tempErrors.newPassword = 'New password is required';
     else if (forgotPasswordData.newPassword.length < 8)
       tempErrors.newPassword = 'Password must be at least 8 characters';
@@ -135,24 +117,11 @@ const ChangePassword = () => {
 
   const handleForgotPasswordSubmit = (e) => {
     e.preventDefault();
-    if (forgotPasswordStep === 'email') {
-      if (validateEmail()) {
-        console.log('Sending OTP to:', forgotPasswordData.email);
-        setForgotPasswordStep('otp');
-      }
-    } else if (forgotPasswordStep === 'otp') {
-      if (validateOtp()) {
-        console.log('OTP verified:', forgotPasswordData.otp);
-        setForgotPasswordStep('reset');
-      }
-    } else if (forgotPasswordStep === 'reset') {
-      if (validateResetPassword()) {
-        console.log('Resetting password for:', forgotPasswordData.email, forgotPasswordData.newPassword);
-        alert('Password reset successfully!');
-        setForgotPasswordData({ email: '', otp: '', newPassword: '', confirmPassword: '' });
-        setForgotPasswordStep(null);
-        setOpenModal(false);
-      }
+    if (validateForgotPassword()) {
+      console.log('Resetting password for:', forgotPasswordData.email, forgotPasswordData.newPassword);
+      alert('Password reset successfully! A confirmation email has been sent.');
+      setForgotPasswordData({ email: '', newPassword: '', confirmPassword: '' });
+      setOpenModal(false);
     }
   };
 
@@ -161,14 +130,12 @@ const ChangePassword = () => {
   };
 
   const handleForgotPasswordClick = () => {
-    setForgotPasswordStep('email');
     setOpenModal(true);
   };
 
   const handleModalClose = () => {
     setOpenModal(false);
-    setForgotPasswordStep(null);
-    setForgotPasswordData({ email: '', otp: '', newPassword: '', confirmPassword: '' });
+    setForgotPasswordData({ email: '', newPassword: '', confirmPassword: '' });
     setForgotPasswordErrors({});
   };
 
@@ -459,351 +426,176 @@ const ChangePassword = () => {
               initial="hidden"
               animate="visible"
             >
-              {forgotPasswordStep === 'email' && (
-                <>
-                  <motion.div variants={headingVariants}>
-                    <Typography
-                      variant="h6"
+              <motion.div variants={headingVariants}>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 'bold',
+                    color: theme.palette.text.primary,
+                    mb: 3,
+                    textAlign: 'center',
+                    background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
+                >
+                  Reset Password
+                </Typography>
+              </motion.div>
+              <Box component="form" onSubmit={handleForgotPasswordSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <motion.div variants={headingVariants}>
+                  <Typography variant="subtitle1" sx={{ textAlign: 'left', mb: 1, color: theme.palette.text.secondary }}>
+                    Enter Your Email
+                  </Typography>
+                </motion.div>
+                <motion.div variants={fieldVariants}>
+                  <TextField
+                    fullWidth
+                    name="email"
+                    type="email"
+                    value={forgotPasswordData.email}
+                    onChange={handleForgotPasswordChange}
+                    error={!!forgotPasswordErrors.email}
+                    helperText={forgotPasswordErrors.email}
+                    placeholder="Enter your email"
+                    variant="outlined"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <EmailIcon sx={{ color: theme.palette.text.secondary }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      bgcolor: alpha(theme.palette.background.default, 0.8),
+                      borderRadius: 1,
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': {
+                          borderColor: theme.palette.primary.main,
+                        },
+                      },
+                    }}
+                  />
+                </motion.div>
+                <motion.div variants={headingVariants}>
+                  <Typography variant="subtitle1" sx={{ textAlign: 'left', mb: 1, color: theme.palette.text.secondary }}>
+                    New Password
+                  </Typography>
+                </motion.div>
+                <motion.div variants={fieldVariants}>
+                  <TextField
+                    fullWidth
+                    name="newPassword"
+                    type={showPassword.forgotNew ? 'text' : 'password'}
+                    value={forgotPasswordData.newPassword}
+                    onChange={handleForgotPasswordChange}
+                    error={!!forgotPasswordErrors.newPassword}
+                    helperText={forgotPasswordErrors.newPassword}
+                    placeholder="Enter new password"
+                    variant="outlined"
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={() => toggleShowPassword('forgotNew')}>
+                            {showPassword.forgotNew ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      bgcolor: alpha(theme.palette.background.default, 0.8),
+                      borderRadius: 1,
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': {
+                          borderColor: theme.palette.primary.main,
+                        },
+                      },
+                    }}
+                  />
+                </motion.div>
+                <motion.div variants={headingVariants}>
+                  <Typography variant="subtitle1" sx={{ textAlign: 'left', mb: 1, color: theme.palette.text.secondary }}>
+                    Confirm New Password
+                  </Typography>
+                </motion.div>
+                <motion.div variants={fieldVariants}>
+                  <TextField
+                    fullWidth
+                    name="confirmPassword"
+                    type={showPassword.forgotConfirm ? 'text' : 'password'}
+                    value={forgotPasswordData.confirmPassword}
+                    onChange={handleForgotPasswordChange}
+                    error={!!forgotPasswordErrors.confirmPassword}
+                    helperText={forgotPasswordErrors.confirmPassword}
+                    placeholder="Confirm new password"
+                    variant="outlined"
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={() => toggleShowPassword('forgotConfirm')}>
+                            {showPassword.forgotConfirm ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      bgcolor: alpha(theme.palette.background.default, 0.8),
+                      borderRadius: 1,
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': {
+                          borderColor: theme.palette.primary.main,
+                        },
+                      },
+                    }}
+                  />
+                </motion.div>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    variants={fieldVariants}
+                  >
+                    <Button
+                      variant="outlined"
+                      onClick={handleModalClose}
                       sx={{
-                        fontWeight: 'bold',
-                        color: theme.palette.text.primary,
-                        mb: 3,
-                        textAlign: 'center',
-                        background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                      }}
-                    >
-                      Forgot Password
-                    </Typography>
-                  </motion.div>
-                  <Box component="form" onSubmit={handleForgotPasswordSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <motion.div variants={headingVariants}>
-                      <Typography variant="subtitle1" sx={{ textAlign: 'left', mb: 1, color: theme.palette.text.secondary }}>
-                        Enter Your Email
-                      </Typography>
-                    </motion.div>
-                    <motion.div variants={fieldVariants}>
-                      <TextField
-                        fullWidth
-                        name="email"
-                        type="email"
-                        value={forgotPasswordData.email}
-                        onChange={handleForgotPasswordChange}
-                        error={!!forgotPasswordErrors.email}
-                        helperText={forgotPasswordErrors.email}
-                        placeholder="Enter your email"
-                        variant="outlined"
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <EmailIcon sx={{ color: theme.palette.text.secondary }} />
-                            </InputAdornment>
-                          ),
-                        }}
-                        sx={{
-                          bgcolor: alpha(theme.palette.background.default, 0.8),
-                          borderRadius: 1,
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': {
-                              borderColor: theme.palette.primary.main,
-                            },
-                          },
-                        }}
-                      />
-                    </motion.div>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                      <motion.div
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        variants={fieldVariants}
-                      >
-                        <Button
-                          variant="outlined"
-                          onClick={handleModalClose}
-                          sx={{
-                            textTransform: 'none',
-                            color: theme.palette.text.secondary,
-                            borderColor: theme.palette.divider,
-                            '&:hover': {
-                              borderColor: theme.palette.primary.main,
-                              bgcolor: alpha(theme.palette.primary.main, 0.1),
-                            },
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </motion.div>
-                      <motion.div
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        variants={fieldVariants}
-                      >
-                        <Button
-                          type="submit"
-                          variant="contained"
-                          color="primary"
-                          sx={{
-                            textTransform: 'none',
-                            fontWeight: 'bold',
-                            bgcolor: theme.palette.primary.main,
-                            '&:hover': {
-                              bgcolor: theme.palette.primary.dark,
-                              transform: 'scale(1.05)',
-                            },
-                            transition: 'all 0.2s ease-in-out',
-                          }}
-                        >
-                          Send OTP
-                        </Button>
-                      </motion.div>
-                    </Box>
-                  </Box>
-                </>
-              )}
-              {forgotPasswordStep === 'otp' && (
-                <>
-                  <motion.div variants={headingVariants}>
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        fontWeight: 'bold',
-                        color: theme.palette.text.primary,
-                        mb: 2,
-                        textAlign: 'center',
-                        background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                      }}
-                    >
-                      Enter OTP
-                    </Typography>
-                  </motion.div>
-                  <motion.div variants={headingVariants}>
-                    <Typography
-                      variant="body2"
-                      sx={{
+                        textTransform: 'none',
                         color: theme.palette.text.secondary,
-                        mb: 2,
-                        textAlign: 'center',
+                        borderColor: theme.palette.divider,
+                        '&:hover': {
+                          borderColor: theme.palette.primary.main,
+                          bgcolor: alpha(theme.palette.primary.main, 0.1),
+                        },
                       }}
                     >
-                      An OTP has been sent to {forgotPasswordData.email}
-                    </Typography>
+                      Cancel
+                    </Button>
                   </motion.div>
-                  <Box component="form" onSubmit={handleForgotPasswordSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <motion.div variants={fieldVariants}>
-                      <TextField
-                        fullWidth
-                        name="otp"
-                        type="text"
-                        value={forgotPasswordData.otp}
-                        onChange={handleForgotPasswordChange}
-                        error={!!forgotPasswordErrors.otp}
-                        helperText={forgotPasswordErrors.otp}
-                        placeholder="Enter 6-digit OTP"
-                        variant="outlined"
-                        inputProps={{ maxLength: 6 }}
-                        sx={{
-                          bgcolor: alpha(theme.palette.background.default, 0.8),
-                          borderRadius: 1,
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': {
-                              borderColor: theme.palette.primary.main,
-                            },
-                          },
-                        }}
-                      />
-                    </motion.div>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                      <motion.div
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        variants={fieldVariants}
-                      >
-                        <Button
-                          variant="outlined"
-                          onClick={handleModalClose}
-                          sx={{
-                            textTransform: 'none',
-                            color: theme.palette.text.secondary,
-                            borderColor: theme.palette.divider,
-                            '&:hover': {
-                              borderColor: theme.palette.primary.main,
-                              bgcolor: alpha(theme.palette.primary.main, 0.1),
-                            },
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </motion.div>
-                      <motion.div
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        variants={fieldVariants}
-                      >
-                        <Button
-                          type="submit"
-                          variant="contained"
-                          color="primary"
-                          sx={{
-                            textTransform: 'none',
-                            fontWeight: 'bold',
-                            bgcolor: theme.palette.primary.main,
-                            '&:hover': {
-                              bgcolor: theme.palette.primary.dark,
-                              transform: 'scale(1.05)',
-                            },
-                            transition: 'all 0.2s ease-in-out',
-                          }}
-                        >
-                          Verify OTP
-                        </Button>
-                      </motion.div>
-                    </Box>
-                  </Box>
-                </>
-              )}
-              {forgotPasswordStep === 'reset' && (
-                <>
-                  <motion.div variants={headingVariants}>
-                    <Typography
-                      variant="h6"
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    variants={fieldVariants}
+                  >
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      color="primary"
                       sx={{
+                        textTransform: 'none',
                         fontWeight: 'bold',
-                        color: theme.palette.text.primary,
-                        mb: 3,
-                        textAlign: 'center',
-                        background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
+                        bgcolor: theme.palette.primary.main,
+                        '&:hover': {
+                          bgcolor: theme.palette.primary.dark,
+                          transform: 'scale(1.05)',
+                        },
+                        transition: 'all 0.2s ease-in-out',
                       }}
                     >
                       Reset Password
-                    </Typography>
+                    </Button>
                   </motion.div>
-                  <Box component="form" onSubmit={handleForgotPasswordSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <motion.div variants={headingVariants}>
-                      <Typography variant="subtitle1" sx={{ textAlign: 'left', mb: 1, color: theme.palette.text.secondary }}>
-                        New Password
-                      </Typography>
-                    </motion.div>
-                    <motion.div variants={fieldVariants}>
-                      <TextField
-                        fullWidth
-                        name="newPassword"
-                        type={showPassword.forgotNew ? 'text' : 'password'}
-                        value={forgotPasswordData.newPassword}
-                        onChange={handleForgotPasswordChange}
-                        error={!!forgotPasswordErrors.newPassword}
-                        helperText={forgotPasswordErrors.newPassword}
-                        placeholder="Enter new password"
-                        variant="outlined"
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton onClick={() => toggleShowPassword('forgotNew')}>
-                                {showPassword.forgotNew ? <VisibilityOff /> : <Visibility />}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                        sx={{
-                          bgcolor: alpha(theme.palette.background.default, 0.8),
-                          borderRadius: 1,
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': {
-                              borderColor: theme.palette.primary.main,
-                            },
-                          },
-                        }}
-                      />
-                    </motion.div>
-                    <motion.div variants={headingVariants}>
-                      <Typography variant="subtitle1" sx={{ textAlign: 'left', mb: 1, color: theme.palette.text.secondary }}>
-                        Confirm New Password
-                      </Typography>
-                    </motion.div>
-                    <motion.div variants={fieldVariants}>
-                      <TextField
-                        fullWidth
-                        name="confirmPassword"
-                        type={showPassword.forgotConfirm ? 'text' : 'password'}
-                        value={forgotPasswordData.confirmPassword}
-                        onChange={handleForgotPasswordChange}
-                        error={!!forgotPasswordErrors.confirmPassword}
-                        helperText={forgotPasswordErrors.confirmPassword}
-                        placeholder="Confirm new password"
-                        variant="outlined"
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton onClick={() => toggleShowPassword('forgotConfirm')}>
-                                {showPassword.forgotConfirm ? <VisibilityOff /> : <Visibility />}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                        sx={{
-                          bgcolor: alpha(theme.palette.background.default, 0.8),
-                          borderRadius: 1,
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': {
-                              borderColor: theme.palette.primary.main,
-                            },
-                          },
-                        }}
-                      />
-                    </motion.div>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                      <motion.div
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        variants={fieldVariants}
-                      >
-                        <Button
-                          variant="outlined"
-                          onClick={handleModalClose}
-                          sx={{
-                            textTransform: 'none',
-                            color: theme.palette.text.secondary,
-                            borderColor: theme.palette.divider,
-                            '&:hover': {
-                              borderColor: theme.palette.primary.main,
-                              bgcolor: alpha(theme.palette.primary.main, 0.1),
-                            },
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </motion.div>
-                      <motion.div
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        variants={fieldVariants}
-                      >
-                        <Button
-                          type="submit"
-                          variant="contained"
-                          color="primary"
-                          sx={{
-                            textTransform: 'none',
-                            fontWeight: 'bold',
-                            bgcolor: theme.palette.primary.main,
-                            '&:hover': {
-                              bgcolor: theme.palette.primary.dark,
-                              transform: 'scale(1.05)',
-                            },
-                            transition: 'all 0.2s ease-in-out',
-                          }}
-                        >
-                          Reset Password
-                        </Button>
-                      </motion.div>
-                    </Box>
-                  </Box>
-                </>
-              )}
+                </Box>
+              </Box>
             </motion.div>
           </Box>
         </Fade>

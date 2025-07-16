@@ -157,96 +157,71 @@ function EmpDetails() {
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
-            gap: 3,
+            gap: 2,
             background: '#AABDAD',
             borderColor: 'rgba(30, 58, 138, 0.3)',
-            hoverShadow: '0 8px 24px rgba(30, 58, 138, 0.4)',
             minWidth: '150px',
             textTransform: 'uppercase',
           }}
         >
-          <Tooltip title="Basic Information">
-            <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+          {[
+            { title: 'Basic Info', icon: <BadgeIcon />, section: 'basic' },
+            { title: 'Personal Info', icon: <PersonIcon />, section: 'personal' },
+            { title: 'Bank Info', icon: <AccountBalanceIcon />, section: 'bank' },
+          ].map((item) => (
+            <Tooltip title={item.title} key={item.section}>
               <Box
                 sx={{
                   display: 'flex',
-                  justifyContent: 'center',
+                  flexDirection: 'row',
                   alignItems: 'center',
-                  width: 40,
-                  height: 40,
-                  borderRadius: '50%',
-                  backgroundColor: alpha('#fff', 0.2),
-                  '&:hover': { backgroundColor: alpha('#fff', 0.4) },
-                  mr: 1,
+                  width: '100%',
+                  padding: '5px 9px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  backgroundColor: activeSection === item.section ? '#648373' : 'transparent',
+                  transition: 'background-color 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: alpha('#053E0E', 0.2),
+                  },
                 }}
+                onClick={() => setActiveSection(item.section)}
               >
-                <IconButton
-                  onClick={() => setActiveSection('basic')}
-                  sx={{ color: activeSection === 'basic' ? '#fff' : alpha('#fff', 0.7), p: 1, mb: 0.5 }}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    backgroundColor: alpha('#fff', activeSection === item.section ? 0.4 : 0.2),
+                    '&:hover': { backgroundColor: alpha('#fff', 0.5) },
+                    mr: 2,
+                  }}
                 >
-                  <BadgeIcon />
-                </IconButton>
-              </Box>
-              <Typography variant="caption" sx={{ fontWeight: 500, color: '#fff', ml: 1, fontSize: 14 }}>
-                Basic Info
-              </Typography>
-            </Box>
-          </Tooltip>
-          <Tooltip title="Personal Information">
-            <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  ml:4,
-                  width: 40,
-                  height: 40,
-                  borderRadius: '50%',
-                  backgroundColor: alpha('#fff', 0.2),
-                  '&:hover': { backgroundColor: alpha('#fff', 0.4) },
-                  mr: 1,
-                }}
-              >
-                <IconButton
-                  onClick={() => setActiveSection('personal')}
-                  sx={{ color: activeSection === 'personal' ? '#fff' : alpha('#fff', 0.7), p: 0.5 }}
+                  <IconButton
+                    sx={{
+                      color: activeSection === item.section ? '#fff' : alpha('#fff', 0.7),
+                      p: 1,
+                    }}
+                  >
+                    {item.icon}
+                  </IconButton>
+                </Box>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 500,
+                    color: activeSection === item.section ? '#fff' : alpha('#fff', 0.9),
+                    fontSize: 14,
+                  }}
                 >
-                  <PersonIcon />
-                </IconButton>
+                  {item.title}
+                </Typography>
               </Box>
-              <Typography variant="caption" sx={{ fontWeight: 500, color: '#fff', ml: 1, fontSize: 14 }}>
-                Personal Info
-              </Typography>
-            </Box>
-          </Tooltip>
-          <Tooltip title="Bank Details">
-            <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  width: 40,
-                  height: 40,
-                  borderRadius: '50%',
-                  backgroundColor: alpha('#fff', 0.2),
-                  '&:hover': { backgroundColor: alpha('#fff', 0.4) },
-                  mr: 1,
-                }}
-              >
-                <IconButton
-                  onClick={() => setActiveSection('bank')}
-                  sx={{ color: activeSection === 'bank' ? '#fff' : alpha('#fff', 0.7), p: 0.5 }}
-                >
-                  <AccountBalanceIcon />
-                </IconButton>
-              </Box>
-              <Typography variant="caption" sx={{ fontWeight: 500, color: '#fff', ml: 1, fontSize: 14 }}>
-                Bank Info
-              </Typography>
-            </Box>
-          </Tooltip>
+            </Tooltip>
+          ))}
         </Box>
 
         {/* Vertical Divider */}
