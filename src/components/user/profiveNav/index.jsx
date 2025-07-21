@@ -62,7 +62,7 @@ function ProfileNav() {
         left: '220px',
         right: 0,
         height: '70px',
-        zIndex: 1100,
+        zIndex: 1,
         background: '#fff',
         backdropFilter: 'blur(30px)',
         WebkitBackdropFilter: 'blur(30px)',
@@ -320,22 +320,23 @@ function ProfileNav() {
         TransitionProps={{ timeout: 400 }}
         BackdropProps={{
           sx: {
-            backgroundColor: 'rgba(0, 0, 0, 0.4)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
           },
         }}
         sx={{
           '& .MuiDialog-paper': {
-            borderRadius: '20px',
-            background: `linear-gradient(145deg, ${theme.palette.background.paper} 0%, ${theme.palette.grey[100]} 100%)`,
-            boxShadow: '0 12px 24px rgba(0, 0, 0, 0.25)',
+            borderRadius: '24px',
+            background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${theme.palette.grey[50]} 100%)`,
+            boxShadow: '0 16px 32px rgba(0, 0, 0, 0.2)',
             width: '100%',
-            maxWidth: '600px',
+            maxWidth: isSmDown ? '90vw' : '640px',
             overflow: 'hidden',
-            margin: isSmDown ? '1rem' : '2rem',
+            margin: isSmDown ? '0.5rem' : '1rem',
             position: 'absolute',
-            top: '1rem',
+            top: '2rem',
+            border: `1px solid ${theme.palette.grey[200]}`,
           },
         }}
       >
@@ -343,28 +344,32 @@ function ProfileNav() {
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'top',
-            p: 2,
+            alignItems: 'center',
+            p: '1.5rem 2rem',
             borderBottom: `1px solid ${theme.palette.grey[200]}`,
-            backgroundColor: theme.palette.background.paper,
+            background: `linear-gradient(90deg, ${theme.palette.primary.light}20, ${theme.palette.secondary.light}20)`,
           }}
         >
           <Typography
             variant="h5"
             sx={{
               fontWeight: 700,
-              color: theme.palette.text.primary,
+              color: theme.palette.primary.dark,
               letterSpacing: '-0.02em',
+              fontSize: isSmDown ? '1.5rem' : '1.75rem',
+              background:theme.palette.primary.main,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
             }}
           >
-            Select Mode
+            Select Your Mode
           </Typography>
-          <IconButton onClick={handleModeDialogClose} size="small">
-            <CloseIcon sx={{ fontSize: '1.5rem', color: theme.palette.text.secondary }} />
+          <IconButton onClick={handleModeDialogClose} size="medium">
+            <CloseIcon sx={{ fontSize: '1.75rem', color: theme.palette.text.secondary, '&:hover': { color: theme.palette.error.main } }} />
           </IconButton>
         </Box>
-        <DialogContent sx={{ p: 4, backgroundColor: theme.palette.background.default, display: 'flex', justifyContent: 'top' }}>
-          <Grid container spacing={3} justifyContent="top" sx={{ maxWidth: '500px' }}>
+        <DialogContent sx={{ p: '2rem', backgroundColor: theme.palette.background.default, display: 'flex', justifyContent: 'center' }}>
+          <Grid container spacing={2} justifyContent="center" sx={{ maxWidth: '500px' }}>
             <Grid item xs={6}>
               <Link to="https://lms.immultiverse.co" style={{ textDecoration: 'none' }}>
                 <Box
@@ -372,42 +377,46 @@ function ProfileNav() {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: 1.5,
-                    p: 2,
-                    borderRadius: '16px',
-                    background: `linear-gradient(145deg, ${theme.palette.grey[50]} 0%, ${theme.palette.background.default} 100%)`,
-                    transition: 'all 0.3s ease',
+                    gap: 2,
+                    p: '1.5rem',
+                    borderRadius: '20px',
+                    background: `linear-gradient(145deg, ${theme.palette.info.light}20, ${theme.palette.info.main}10)`,
+                    transition: 'all 0.4s ease',
                     cursor: 'pointer',
-                    border: `1px solid ${theme.palette.grey[200]}`,
+                    border: `1px solid ${theme.palette.info.main}30`,
+                    boxShadow: `0 4px 12px ${theme.palette.info.main}20`,
                     '&:hover': {
-                      background: theme.palette.primary.light,
-                      transform: 'translateY(-4px)',
-                      boxShadow: `0 6px 16px ${theme.palette.grey[400]}40`,
+                      background: `linear-gradient(145deg, ${theme.palette.info.main}30, ${theme.palette.info.dark}20)`,
+                      transform: 'translateY(-6px)',
+                      boxShadow: `0 8px 24px ${theme.palette.info.main}40`,
+                      borderColor: theme.palette.info.main,
                     },
                   }}
                 >
                   <Avatar
                     sx={{
-                      width: isSmDown ? '56px' : '72px',
-                      height: isSmDown ? '56px' : '72px',
-                      backgroundColor: theme.palette.grey[100],
-                      border: `2px solid ${theme.palette.primary.main}`,
-                      transition: 'all 0.3s ease',
+                      width: isSmDown ? '64px' : '80px',
+                      height: isSmDown ? '64px' : '80px',
+                      backgroundColor: theme.palette.info.light,
+                      border: `3px solid ${theme.palette.info.main}`,
+                      transition: 'all 0.4s ease',
                       '&:hover': {
-                        backgroundColor: theme.palette.primary.light,
-                        transform: 'scale(1.05)',
+                        backgroundColor: theme.palette.info.main,
+                        transform: 'scale(1.1)',
+                        boxShadow: `0 4px 16px ${theme.palette.info.main}30`,
                       },
                     }}
                   >
-                    <School sx={{ color: theme.palette.primary.main, fontSize: isSmDown ? '2.2rem' : '2.8rem' }} />
+                    <School sx={{ color: theme.palette.info.dark, fontSize: isSmDown ? '2.5rem' : '3rem' }} />
                   </Avatar>
                   <Typography
                     variant="h6"
                     sx={{
                       fontWeight: 700,
-                      color: theme.palette.text.primary,
+                      color: theme.palette.info.dark,
                       textAlign: 'center',
                       letterSpacing: '-0.01em',
+                      fontSize: isSmDown ? '1.25rem' : '1.5rem',
                     }}
                   >
                     LMS
@@ -415,61 +424,65 @@ function ProfileNav() {
                   <Typography
                     variant="body2"
                     sx={{
-                      color: theme.palette.text.secondary,
+                      color: theme.palette.info.dark,
                       textAlign: 'center',
-                      whiteSpace: 'nowrap',
-                      fontSize: isSmDown ? '0.75rem' : '0.875rem',
+                      fontSize: isSmDown ? '0.85rem' : '1rem',
+                      fontWeight: 400,
+                      opacity: 0.8,
                     }}
                   >
-                    Learning Management System
+                    Lead Management System
                   </Typography>
                 </Box>
-        
               </Link>
             </Grid>
             <Grid item xs={6}>
-              <Link to="https://hrm.immultiverse.co" style={{ textDecoration: 'none' }}>
+              <Link to="https://hr.immultiverse.co" style={{ textDecoration: 'none' }}>
                 <Box
                   sx={{
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: 1.5,
-                    p: 2,
-                    borderRadius: '16px',
-                    background: `linear-gradient(145deg, ${theme.palette.grey[50]} 0%, ${theme.palette.background.default} 100%)`,
-                    transition: 'all 0.3s ease',
+                    gap: 2,
+                    p: '1.5rem',
+                    borderRadius: '20px',
+                    background: `linear-gradient(145deg, ${theme.palette.success.light}20, ${theme.palette.success.main}10)`,
+                    transition: 'all 0.4s ease',
                     cursor: 'pointer',
-                    border: `1px solid ${theme.palette.grey[200]}`,
+                    border: `1px solid ${theme.palette.success.main}30`,
+                    boxShadow: `0 4px 12px ${theme.palette.success.main}20`,
                     '&:hover': {
-                      background: theme.palette.primary.light,
-                      transform: 'translateY(-4px)',
-                      boxShadow: `0 6px 16px ${theme.palette.grey[400]}40`,
+                      background: `linear-gradient(145deg, ${theme.palette.success.main}30, ${theme.palette.success.dark}20)`,
+                      transform: 'translateY(-6px)',
+                      boxShadow: `0 8px 24px ${theme.palette.success.main}40`,
+                      borderColor: theme.palette.success.main,
                     },
                   }}
                 >
                   <Avatar
                     sx={{
-                      width: isSmDown ? '56px' : '72px',
-                      height: isSmDown ? '56px' : '72px',
-                      backgroundColor: theme.palette.grey[100],
-                      border: `2px solid ${theme.palette.primary.main}`,
-                      transition: 'all 0.3s ease',
+                      width: isSmDown ? '64px' : '80px',
+                      height: isSmDown ? '64px' : '80px',
+                      backgroundColor: theme.palette.success.light,
+                      border: `3px solid ${theme.palette.success.main}`,
+                      transition: 'all 0.4s ease',
                       '&:hover': {
-                        backgroundColor: theme.palette.primary.light,
-                        transform: 'scale(1.05)',
+                        backgroundColor: theme.palette.success.main,
+                        transform: 'scale(1.1)',
+                        boxShadow: `0 4px 16px ${theme.palette.success.main}30`,
                       },
                     }}
                   >
-                    <Business sx={{ color: theme.palette.primary.main, fontSize: isSmDown ? '2.2rem' : '2.8rem' }} />
+                    <Business sx={{ color: theme.palette.success.dark, fontSize: isSmDown ? '2.5rem' : '3rem' }} />
                   </Avatar>
                   <Typography
                     variant="h6"
                     sx={{
-                      fontWeight: 600,
-                      color: theme.palette.text.primary,
+                      fontWeight: 700,
+                      color: theme.palette.success.dark,
                       textAlign: 'center',
                       letterSpacing: '-0.01em',
+                      fontSize: isSmDown ? '1.25rem' : '1.5rem',
                     }}
                   >
                     HRM
@@ -477,10 +490,11 @@ function ProfileNav() {
                   <Typography
                     variant="body2"
                     sx={{
-                      color: theme.palette.text.secondary,
+                      color: theme.palette.success.dark,
                       textAlign: 'center',
-                      whiteSpace: 'nowrap',
-                      fontSize: isSmDown ? '0.75rem' : '0.875rem',
+                      fontSize: isSmDown ? '0.85rem' : '1rem',
+                      fontWeight: 400,
+                      opacity: 0.8,
                     }}
                   >
                     Human Resource Management
@@ -490,20 +504,21 @@ function ProfileNav() {
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2, justifyContent: 'flex-end', backgroundColor: theme.palette.background.paper }}>
+        <DialogActions sx={{ p: '1.5rem 2rem', justifyContent: 'flex-end', backgroundColor: theme.palette.background.paper }}>
           <Button
             onClick={handleModeDialogClose}
             sx={{
               textTransform: 'none',
               color: '#fff',
-              backgroundColor: theme.palette.primary.main,
-              borderRadius: '8px',
-              padding: '8px 24px',
-              fontWeight: 500,
+              background: theme.palette.primary.main,
+              borderRadius: '10px',
+              padding: '10px 28px',
+              fontWeight: 600,
+              fontSize: isSmDown ? '0.9rem' : '1rem',
               transition: 'all 0.3s ease',
               '&:hover': {
-                backgroundColor: theme.palette.primary.dark,
-                boxShadow: `0 4px 12px ${theme.palette.grey[400]}30`,
+                background: theme.palette.primary.main,
+                boxShadow: `0 6px 16px ${theme.palette.grey[400]}30`,
                 transform: 'translateY(-2px)',
               },
             }}

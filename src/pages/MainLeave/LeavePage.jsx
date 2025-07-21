@@ -664,7 +664,7 @@ const LeavePage = () => {
       }}
     >
       <Box sx={{ width: '100%', mb: 2 }}>
-        <Grid container spacing={2} sx={{ width: '100%', position: 'sticky', top: 0, zIndex: 1000 }}>
+        <Grid container spacing={2} sx={{ width: '100%', zIndex: 1 }}>
           <Grid item xs={12} container justifyContent='flex-end'>
             <ProfileNav />
           </Grid>

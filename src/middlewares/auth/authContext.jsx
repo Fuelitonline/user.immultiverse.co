@@ -22,11 +22,9 @@ const decryptData = (encryptedData) => {
     const secretKey = import.meta.env.VITE_SECRET_KEY || "default-secret";
     const bytes = CryptoJS.AES.decrypt(encryptedData, secretKey);
     const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
-    
-    if (!decryptedString) {
-      throw new Error("Failed to decrypt data");
-    }
-    
+
+    if (!decryptedString) throw new Error("Failed to decrypt data");
+
     return JSON.parse(decryptedString);
   } catch (error) {
     console.error("Decryption error:", error);
@@ -37,102 +35,92 @@ const decryptData = (encryptedData) => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
-  const [loading, setLoading] = useState(true);  // Add a loading state to prevent redirects on first render
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { data: users, loading: apiLoading, error: apiError } = useGet("/employee/get-login-employee");
 
-  // Load from localStorage
+  const { data: users, loading: apiLoading, error: apiError } = useGet(
+    "/employee/get-login-employee"
+  );
+
+  // Load from localStorage on mount
   useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    const storedToken = localStorage.getItem("authToken");
 
-    const stored = localStorage.getItem("user");
-    
-    if (stored) {
-      try {
-        const decryptedData = decryptData(stored);
-        
-        if (decryptedData && decryptedData.data && decryptedData.expiry) {
-          if (Date.now() < decryptedData.expiry) {
-            console.log("Loaded user from localStorage:", decryptedData.data);
-            setUser(decryptedData.data);
-          } else {
+    if (storedUser && storedToken) {
+      const decryptedData = decryptData(storedUser);
 
-            localStorage.removeItem("user");
-          }
+      if (decryptedData && decryptedData.data && decryptedData.expiry) {
+        if (Date.now() < decryptedData.expiry) {
+          setUser(decryptedData.data);
+          setToken(storedToken);
         } else {
-
           localStorage.removeItem("user");
+          localStorage.removeItem("authToken");
         }
-      } catch (error) {
-
+      } else {
         localStorage.removeItem("user");
+        localStorage.removeItem("authToken");
       }
-    } else {
-
     }
-    
     setLoading(false);
   }, []);
 
-  // Set user from API if not already set
+  // Set user from API if not already set or when token changes
   useEffect(() => {
- 
-
-    // Only proceed if we have API data and no current user
     if (users?.data && !user && !apiLoading) {
       try {
         const userData = users.data?.message.data;
 
-        
         const expiry = Date.now() + 12 * 3600000; // 12 hours
         const dataToEncrypt = { data: userData, expiry };
-        
-
-        
         const encrypted = encryptData(dataToEncrypt);
-        
+
         if (encrypted) {
           localStorage.setItem("user", encrypted);
-
-          
-          // Verify the data was saved correctly
-          const verification = localStorage.getItem("user");
-          const decryptedVerification = decryptData(verification);
-
-          
           setUser(userData);
-
-        } 
+        }
       } catch (error) {
         console.error("Error processing API user data:", error);
       }
     }
-  }, [users, user, apiLoading, apiError]);
+  }, [users, user, apiLoading, apiError, token]); // token added
 
-  const login = (userData) => {
+  // Login function with clearing old data
+  const login = (userData, authToken) => {
     try {
-      console.log("Manual login with data:", userData);
-      
-      const expiry = Date.now() + 12 * 3600000;
+      console.log("Logging in new user...");
+
+      // Clear previous user and token
+      localStorage.removeItem("user");
+      localStorage.removeItem("authToken");
+
+      // Save new token
+      if (authToken) {
+        localStorage.setItem("authToken", authToken);
+        setToken(authToken);
+      }
+
+      // Save new user data
+      const expiry = Date.now() + 12 * 3600000; // 12 hours
       const dataToEncrypt = { data: userData, expiry };
       const encrypted = encryptData(dataToEncrypt);
-      
+
       if (encrypted) {
         localStorage.setItem("user", encrypted);
         setUser(userData);
-
       }
     } catch (error) {
       console.error("Login error:", error);
     }
   };
 
-  // Logout function to clear localStorage and reset state
+  // Logout function: clear everything
   const logout = () => {
     console.log("Logging out user...");
-    localStorage.removeItem("user");
-    localStorage.removeItem("authToken");
+    localStorage.clear();
     setUser(null);
-   
+    setToken(null);
   };
 
   // Global 401 handler
@@ -140,13 +128,11 @@ export const AuthProvider = ({ children }) => {
     const interceptor = axios.interceptors.response.use(
       (res) => res,
       (err) => {
-        console.log("Axios interceptor triggered:", err.response?.status);
         if (err.response?.status === 401) {
           console.log("401 error detected, logging out...");
- window.location.href = user?.role === "superadmin"
-    ? "https://auth.immultiverse.co/login?user=superAdmin&redirect=user.immultiverse.co"
-    : "https://auth.immultiverse.co/login?user=employee&redirect=employee.immultiverse.co";
           logout();
+          window.location.href =
+            "https://auth.immultiverse.co/login?user=employee&redirect=user.immultiverse.co";
         }
         return Promise.reject(err);
       }
@@ -154,13 +140,13 @@ export const AuthProvider = ({ children }) => {
     return () => axios.interceptors.response.eject(interceptor);
   }, []);
 
-  // Debug effect to track user state changes
+  // Debug: track user state
   useEffect(() => {
     console.log("User state changed:", user);
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
       {!loading ? children : null}
     </AuthContext.Provider>
   );
@@ -172,4 +158,4 @@ export const useAuth = () => {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-}
+};
