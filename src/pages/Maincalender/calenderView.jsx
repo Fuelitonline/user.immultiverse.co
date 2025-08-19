@@ -80,7 +80,7 @@ function CalendarActions({ size, getTimes }) {
 
   useEffect(() => {
     if (getMeetings?.data?.data) {
-      const transformedEvents = getMeetings.data.data.map(meeting => {
+      const transformedEvents = getMeetings.data.data?.data?.map(meeting => {
         // Parse meetingDate with moment to ensure correct time and timezone
         const start = meeting.meetingDate ? moment(meeting.meetingDate).toDate() : new Date();
         const end = new Date(start.getTime() + (meeting.meetingDuration || 30) * 60000);
