@@ -79,23 +79,27 @@ function CalendarActions({ size, getTimes }) {
   }, [getDailyWorkData]);
 
   useEffect(() => {
+
     if (getMeetings?.data?.data) {
-      const transformedEvents = getMeetings.data.data.map(meeting => {
-        // Parse meetingDate with moment to ensure correct time and timezone
-        const start = meeting.meetingDate ? moment(meeting.meetingDate).toDate() : new Date();
-        const end = new Date(start.getTime() + (meeting.meetingDuration || 30) * 60000);
+      const eventsData = getMeetings?.data?.data?.data || []
+             const event  =    eventsData?.map((meeting) => {
+        const startDate = new Date(meeting?.meetingDate);
+        // Calculate end time (1 hour after start by default)
+        const endDate = new Date(startDate);
+        endDate.setHours(startDate.getHours() + 1);
+        
         return {
-          id: meeting._id,
-          title: meeting.meetingName || "Unnamed Meeting",
-          start,
-          end,
-          color: getColorByTimeDifference(start),
-          details: `${meeting.meetingAgenda || "No agenda"} - Host: ${meeting.meetingHost || "Unknown"} - ${meeting.meetingDuration || 30} min`,
+          id: meeting.id || Math.random().toString(36).substring(2, 9),
+          title: meeting.meetingName,
+          start: startDate,
+          end: endDate,
+          link: meeting.meetingLink,
+          color: getLightColor(meeting.meetingName),
         };
       });
-      setEvents(transformedEvents);
-    } else {
-      setEvents([]);
+      setEvents(event || []);
+
+      console.log(events, 'events',eventsData)
     }
   }, [getMeetings]);
 
