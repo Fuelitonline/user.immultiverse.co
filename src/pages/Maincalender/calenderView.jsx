@@ -1,45 +1,26 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
-import moment from 'moment';
-import 'moment-timezone'; // Import moment-timezone for proper time zone handling
+import moment from 'moment-timezone';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import {
-  Box,
-  Typography,
-  Button,
-  CircularProgress,
-  IconButton,
-  Popover,
-  Chip,
-  Avatar,
-  Card,
-  Tooltip,
-  TextField
-} from '@mui/material';
-import { useTheme } from '@emotion/react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { useAuth } from '../../middlewares/auth';
-import Feedback from '@mui/icons-material/Feedback';
+import { useAuth } from '../../middlewares/auth/authContext';
 import CalendarToday from '@mui/icons-material/CalendarToday';
-import Person from '@mui/icons-material/Person';
-import AddTaskDialog from './AddTaskDialog';
 import { useGet, usePost } from '../../hooks/useApi';
+import { Tooltip } from '@mui/material';
+import AddTaskDialog from './AddTaskDialog';
 
-// Placeholder logo paths - replace with your actual logo paths
-const lightLogo = "https://mutliverse-app-version.s3.ap-south-1.amazonaws.com/Multiverse/logo.png";
-const darkLogo = "https://mutliverse-app-version.s3.ap-south-1.amazonaws.com/Multiverse/darkLogo.png";
-const fallbackLogo = "/path/to/fallback-logo.png"; // Replace with a local fallback logo path
+// Logo path
+const logo = "https://mutliverse-app-version.s3.ap-south-1.amazonaws.com/Multiverse/logo.png";
 
-// Set moment to use IST time zone
-moment.tz.setDefault('Asia/Kolkata');
+// Set moment to use UTC internally
+moment.tz.setDefault('UTC');
 moment.locale("en-GB");
 const localizer = momentLocalizer(moment);
 
-// Use current time instead of hardcoded value
-const today = new Date(); // Current date and time in local timezone (IST)
+const today = new Date();
 
-function CalendarActions({ size, getTimes }) {
+function CalendarActions({ size, getTimes, getEmployeeName }) {
   const [currentMonth, setCurrentMonth] = useState(moment().month() + 1);
   const [currentYear, setCurrentYear] = useState(moment().year());
   const [events, setEvents] = useState([]);
@@ -47,29 +28,53 @@ function CalendarActions({ size, getTimes }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [description, setDescription] = useState("");
   const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [loadingState, setLoadingState] = useState(false);
   const [selectedTab, setSelectedTab] = useState(0);
   const [dailyWork, setDailyWork] = useState([]);
-  const [feedback, setFeedback] = useState('');
-  const [selected, setSelected] = useState(null);
-  const theme = useTheme();
   const { user } = useAuth();
   const calendarRef = useRef(null);
 
-  const { data: getMeetings } = useGet('meetings/get', { month: currentMonth, year: currentYear });
-  const { data: getDailyWorkData, refetch } = useGet('/emplyoee/daily-work/get', {
-    employeeId: user?._id,
-    date: selectedDate,
-  });
+  // Calculate startDate and endDate for the current month
+  const startDate = moment({ year: currentYear, month: currentMonth - 1, day: 1 }).tz('UTC').startOf('month').format('YYYY-MM-DD');
+  const endDate = moment({ year: currentYear, month: currentMonth - 1, day: 1 }).tz('UTC').endOf('month').format('YYYY-MM-DD');
 
-  const handleGiveFeedback = usePost('/emplyoee/daily-work/update');
-  const handleDeleteTask = usePost('/emplyoee/daily-work/delete');
+  // Fetch data
+  const { data: getEventsData, isLoading: isEventsLoading, error: eventsError } = useGet(
+    '/event',
+    {
+      employeeId: user?._id,
+      startDate,
+      endDate,
+    },
+    {},
+    { queryKey: ['events', user?._id, startDate, endDate] }
+  );
+  const { data: getMeetingsData, isLoading: isMeetingsLoading, error: meetingsError } = useGet(
+    '/meetings/get',
+    {
+      employeeId: user?._id,
+      startDate,
+      endDate,
+    },
+    {},
+    { queryKey: ['meetings', user?._id, startDate, endDate] }
+  );
+  const { data: getDailyWorkData, isLoading: isDailyWorkLoading, error: dailyWorkError, refetch } = useGet(
+    '/employee/daily-work/get',
+    {
+      employeeId: user?._id,
+      startDate,
+      endDate,
+    },
+    {},
+    { queryKey: ['dailyWork', user?._id, startDate, endDate] }
+  );
+
+  const handleDeleteTask = usePost('/employee/daily-work/delete');
 
   useEffect(() => {
     if (getDailyWorkData?.data?.data) {
-      setDailyWork(getDailyWorkData.data?.data);
+      setDailyWork(getDailyWorkData.data.data);
       if (calendarRef.current) {
         calendarRef.current.forceUpdate();
       }
@@ -79,51 +84,91 @@ function CalendarActions({ size, getTimes }) {
   }, [getDailyWorkData]);
 
   useEffect(() => {
+    const eventsData = Array.isArray(getEventsData?.data?.data) ? getEventsData.data.data : [];
+    const meetings = Array.isArray(getMeetingsData?.data?.data?.data) ? getMeetingsData.data.data.data : [];
+    const dailyWork = Array.isArray(getDailyWorkData?.data?.data?.data) ? getDailyWorkData.data.data.data : [];
 
-    if (getMeetings?.data?.data) {
-      const eventsData = getMeetings?.data?.data?.data || []
-             const event  =    eventsData?.map((meeting) => {
-        const startDate = new Date(meeting?.meetingDate);
-        // Calculate end time (1 hour after start by default)
-        const endDate = new Date(startDate);
-        endDate.setHours(startDate.getHours() + 1);
-        
-        return {
-          id: meeting.id || Math.random().toString(36).substring(2, 9),
-          title: meeting.meetingName,
-          start: startDate,
-          end: endDate,
-          link: meeting.meetingLink,
-          color: getLightColor(meeting.meetingName),
-        };
-      });
-      setEvents(event || []);
+    console.log('Raw API Data:', { eventsData, meetings, dailyWork });
 
-      console.log(events, 'events',eventsData)
-    }
-  }, [getMeetings]);
+    const transformedEvents = [
+      ...eventsData.map((event) => ({
+        id: event._id,
+        title: event.title || 'Unnamed Event',
+        start: event.start && moment(event.start).isValid() ? moment(event.start).tz('UTC').toDate() : new Date(),
+        end: event.end && moment(event.end).isValid() ? moment(event.end).tz('UTC').toDate() : new Date(),
+        color: '#10b981',
+        details: `Event - ${event.description || 'No description'}`,
+        type: 'event',
+        createdAt: new Date(event.createdAt || Date.now()),
+      })),
+      ...meetings.map((meeting) => ({
+        id: meeting._id,
+        title: meeting.meetingName || 'Unnamed Meeting',
+        start: meeting.start_time_Date && moment(meeting.start_time_Date).isValid()
+          ? moment(meeting.start_time_Date).tz('UTC').toDate()
+          : meeting.meetingDate && moment(meeting.meetingDate).isValid()
+          ? moment(meeting.meetingDate).tz('UTC').toDate()
+          : new Date(),
+        end: meeting.end_time_Date && moment(meeting.end_time_Date).isValid()
+          ? moment(meeting.end_time_Date).tz('UTC').toDate()
+          : meeting.meetingDate && meeting.meetingDuration && moment(meeting.meetingDate).isValid()
+          ? moment(meeting.meetingDate).tz('UTC').add(parseInt(meeting.meetingDuration), 'minutes').toDate()
+          : new Date(),
+        color: '#9810FA',
+        details: `Meeting - ${meeting.meetingAgenda || meeting.meetingDescription || 'No description'}`,
+        type: 'meeting',
+        host: meeting.meetingHost,
+        link: meeting.meetingLink,
+        by: meeting.meetingBy,
+        for: meeting.meetingFor,
+        duration: meeting.meetingDuration,
+        createdAt: new Date(meeting.createdAt || Date.now()),
+      })),
+      ...dailyWork.map((work) => ({
+        id: work._id,
+        title: work.description || 'Unnamed Task',
+        start: work.startDate && moment(work.startDate).isValid()
+          ? moment(work.startDate).tz('UTC').toDate()
+          : new Date(),
+        end: work.endDate && moment(work.endDate).isValid()
+          ? moment(work.endDate).tz('UTC').toDate()
+          : work.startDate && moment(work.startDate).isValid()
+          ? moment(work.startDate).tz('UTC').add(1, 'hours').toDate()
+          : new Date(),
+        color: '#f59e0b',
+        details: `Task Work - ${work.description || 'No description'}`,
+        type: 'dailyWork',
+        createdAt: new Date(work.createdAt || Date.now()),
+      })),
+    ];
 
-  const getColorByTimeDifference = (eventStart) => {
-    const now = new Date(); // Current time
-    const timeDiff = eventStart - now;
-    const minutesDiff = Math.floor(timeDiff / 60000);
-    if (minutesDiff < 10 && minutesDiff >= 0) return "#ef4444"; // Red (urgent)
-    if (minutesDiff < 60 && minutesDiff >= 0) return "#f59e0b"; // Yellow (soon)
-    if (minutesDiff < 300 && minutesDiff >= 0) return "#10b981"; // Green (upcoming)
-    if (minutesDiff >= 300) return "#6366f1"; // Blue (future)
-    return "#9ca3af"; // Gray (past)
-  };
+    const seenIds = new Set();
+    const uniqueEvents = transformedEvents.filter((event) => {
+      if (seenIds.has(event.id)) {
+        console.warn('Duplicate event ID detected:', event.id, event);
+        return false;
+      }
+      seenIds.add(event.id);
+      return true;
+    });
+    setEvents(uniqueEvents);
+
+    console.log('Transformed Events:', uniqueEvents);
+    console.log('Total Events:', uniqueEvents.length);
+  }, [getEventsData, getMeetingsData, getDailyWorkData]);
 
   const handleNavigate = (date) => {
-    setCurrentMonth(date.getMonth() + 1);
-    setCurrentYear(date.getFullYear());
-    getTimes && getTimes(date.getMonth() + 1, date.getFullYear());
+    const newMonth = date.getMonth() + 1;
+    const newYear = date.getFullYear();
+    setCurrentMonth(newMonth);
+    setCurrentYear(newYear);
+    getTimes && getTimes(newMonth, newYear);
   };
 
-  const onSelectSlot = useCallback((slotInfo) => {
+  const onSelectSlot = (slotInfo) => {
     setSelectedDate(slotInfo.start);
     setOpenDialog(true);
-  }, []);
+  };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
@@ -131,84 +176,28 @@ function CalendarActions({ size, getTimes }) {
     setFile(null);
   };
 
-  const handlePopoverOpen = (event, file, id) => {
-    setSelected(id);
-    setAnchorEl(event.currentTarget);
-    setSelectedFile(file);
-  };
-
-  const handlePopoverClose = () => {
-    setAnchorEl(null);
-    setSelectedFile(null);
-    setFeedback('');
-  };
-
-  const handleFeedbackChange = (e) => setFeedback(e.target.value);
-
-  const handleSubmitFeedback = async () => {
-    if (!feedback.trim() || !selected) {
-      return;
-    }
-    
-    setLoading(true);
-    const data = { feedback, id: selected, feedbackGiverName: user?.name || user?.companyName || "Anonymous" };
-    
-    try {
-      await handleGiveFeedback.mutateAsync(data);
-      refetch();
-    } catch (error) {
-      console.error("Failed to submit feedback:", error);
-    } finally {
-      setLoading(false);
-      handlePopoverClose();
-    }
-  };
-
   const handleDelete = async (id) => {
     if (!id) return;
-    setLoading(true);
+    setLoadingState(true);
     try {
       await handleDeleteTask.mutateAsync({ id });
       refetch();
     } catch (error) {
       console.error("Failed to delete task:", error);
     } finally {
-      setLoading(false);
+      setLoadingState(false);
     }
   };
 
   const dayPropGetter = (date) => {
-    const formattedDate = moment(date).format("YYYY-MM-DD");
-    const hasTask = dailyWork.some((work) => moment(work.date).format("YYYY-MM-DD") === formattedDate);
-    const isCurrentDate = 
+    const isCurrentDate =
       date.getDate() === today.getDate() &&
       date.getMonth() === today.getMonth() &&
       date.getFullYear() === today.getFullYear();
-
-    if (hasTask) {
-      return {
-        style: {
-          backgroundColor: '#ef4444',
-          opacity: 0.3,
-          borderRadius: '4px',
-          transition: 'background 0.3s ease',
-        },
-      };
-    }
-
-    if (isCurrentDate) {
-      return {
-        style: {
-          backgroundColor: 'rgba(245, 158, 11, 0.2)',
-          borderRadius: '4px',
-          transition: 'background 0.3s ease',
-        },
-      };
-    }
-
     return {
       style: {
-        backgroundColor: 'transparent',
+        backgroundColor: isCurrentDate ? 'rgba(79, 70, 229, 0.1)' : 'transparent',
+        borderRadius: '4px',
         transition: 'background 0.3s ease',
       },
     };
@@ -216,54 +205,212 @@ function CalendarActions({ size, getTimes }) {
 
   const eventPropGetter = (event) => ({
     style: {
-      backgroundColor: `${event.color}CC`,
-      color: 'white',
-      borderRadius: '6px',
+      backgroundColor: 'transparent',
       border: 'none',
       padding: '2px 8px',
       fontSize: '12px',
       fontWeight: '500',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      boxShadow: 'none',
       transition: 'all 0.3s ease',
+      maxWidth: '90%',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
     },
   });
 
   const defaultDate = useMemo(() => new Date(), []);
 
+  const eventsByDate = useMemo(() => {
+    const eventsMap = {};
+    events.forEach((event) => {
+      const dateKey = moment(event.start).tz('UTC').format('YYYY-MM-DD');
+      if (!eventsMap[dateKey]) {
+        eventsMap[dateKey] = [];
+      }
+      eventsMap[dateKey].push(event);
+    });
+    console.log('Events by Date:', eventsMap);
+    return eventsMap;
+  }, [events]);
+
+  const legendItems = [
+    { type: 'Event', color: '#10b981' },
+    { type: 'Meeting', color: '#9810FA' },
+    { type: 'Task', color: '#f59e0b' },
+  ];
+
+  const getErrorMessage = (error) => {
+    if (!error) return null;
+    const status = error.response?.status;
+    switch (status) {
+      case 401:
+        return 'Authentication failed. Please check your credentials or log in again.';
+      case 403:
+        return 'You do not have permission to access this data.';
+      case 404:
+        return 'The requested data was not found. Please verify the API endpoint.';
+      case 500:
+        return 'Server error occurred. Please try again later or contact support.';
+      default:
+        return error.message || 'An unexpected error occurred. Please try again.';
+    }
+  };
+
   return (
-    <Card
-      elevation={4}
-      sx={{
-        background: '#ffffff',
-        borderRadius: '16px',
-        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.1)',
-        transition: 'all 0.3s ease',
-        '&:hover': {
-          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)',
-          transform: 'translateY(-4px)',
-        },
-        overflow: 'hidden',
-        width: size.width,
-        height: size.height,
-        border: '1px solid rgba(0, 0, 0, 0.12)',
-        position: 'relative',
-      }}
-    >
-      <Box sx={{ p: { xs: 2, md: 3 }, height: '100%', position: 'relative', zIndex: 1 }}>
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-200/50 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 w-full h-full relative">
+      <style jsx>{`
+        .rbc-calendar {
+          background: transparent !important;
+          font-family: 'Inter', sans-serif !important;
+          border-radius: 1rem;
+          overflow: hidden;
+        }
+
+        .rbc-toolbar {
+          background: linear-gradient(to right, #bfdbfe, #ddd6fe);
+          color: white;
+          padding: 0.5rem;
+          border-radius: 0.5rem 0.5rem 0 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .rbc-toolbar-label {
+          font-size: 1.25rem !important;
+          font-weight: 600 !important;
+        }
+
+        .rbc-month-view {
+          background: transparent !important;
+          position: relative;
+          z-index: 1;
+          margin-top: -10px;
+        }
+
+        .rbc-month-row {
+          min-height: 60px !important;
+          background: transparent !important;
+        }
+
+        .rbc-date-cell {
+          padding: 0.25rem !important;
+          text-align: left;
+          background: transparent !important;
+          position: relative;
+          font-size: 0.75rem;
+        }
+
+        .rbc-date-cell a {
+          position: absolute;
+          top: 0.15rem;
+          left: 0.15rem;
+          color: #333;
+          font-size: 0.75rem;
+          font-weight: 500;
+          z-index: 2;
+        }
+
+        .rbc-off-range {
+          background: transparent !important;
+          color: #999 !important;
+        }
+
+        .rbc-off-range a {
+          color: #999 !important;
+        }
+
+        .rbc-today {
+          background: rgba(254, 242, 242, 0.6) !important;
+          border-radius: 0.5rem;
+        }
+
+        .rbc-event {
+          background: transparent !important;
+          font-weight: 500;
+          border-radius: 0.5rem !important;
+          z-index: 1;
+          font-size: 0.75rem !important;
+          padding: 0.25rem 0.5rem !important;
+          color: transparent !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          margin-top: 1.2rem;
+        }
+
+        .rbc-event:hover {
+          background: transparent !important;
+          color: transparent !important;
+        }
+
+        .rbc-btn-group button.rbc-toolbar-button {
+          color: white !important;
+          background: rgba(255, 255, 255, 0.2) !important;
+          border: none !important;
+          font-size: 1rem;
+          padding: 0.5rem 1rem;
+          text-transform: none;
+          border-radius: 0.25rem;
+          margin-left: 0.5rem;
+        }
+
+        .rbc-btn-group button.rbc-toolbar-button:hover {
+          background: rgba(255, 255, 255, 0.4) !important;
+        }
+
+        .tooltip-created-at {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          color: #d1d5db;
+          font-size: 0.75rem;
+          font-weight: 300;
+        }
+
+        .event-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background-color: white;
+          display: inline-block;
+          margin-right: 4px;
+          margin-bottom: 1px;
+        }
+
+        .rbc-show-more {
+          display: none !important;
+        }
+
+        .rbc-selected {
+          background-color: rgba(79, 70, 229, 0.3) !important;
+        }
+      `}</style>
+      {(isEventsLoading || isMeetingsLoading || isDailyWorkLoading) && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50 z-50">
+          <svg className="animate-spin h-8 w-8 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+      )}
+      {(eventsError || meetingsError || dailyWorkError) && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50 z-50">
+          <p className="text-red-500 font-semibold text-center">
+            {eventsError
+              ? getErrorMessage(eventsError)
+              : meetingsError
+              ? getErrorMessage(meetingsError)
+              : getErrorMessage(dailyWorkError)}
+          </p>
+        </div>
+      )}
+      <div className="p-4 md:p-6 h-full relative z-10">
         <img
-          src={theme.palette.mode === 'dark' ? darkLogo : lightLogo}
+          src={logo}
           alt="Calendar Logo"
-          onError={(e) => { e.target.src = fallbackLogo; }}
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '30%',
-            opacity: 0.7,
-            zIndex: 0,
-            pointerEvents: 'none',
-          }}
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[30%] max-w-[300px] opacity-30 pointer-events-none z-0"
         />
         <Calendar
           ref={calendarRef}
@@ -271,13 +418,13 @@ function CalendarActions({ size, getTimes }) {
           events={events}
           eventPropGetter={eventPropGetter}
           defaultDate={defaultDate}
-          startAccessor="start"
-          endAccessor="end"
+          startAccessor={(event) => event.start}
+          endAccessor={(event) => event.end}
           onNavigate={handleNavigate}
           dayPropGetter={dayPropGetter}
           onSelectSlot={onSelectSlot}
-          selectable={true}
-          views={["month"]}
+          selectable="true"
+          views={['week', 'month', 'agenda', 'day']}
           defaultView="month"
           style={{
             height: size.height,
@@ -285,191 +432,128 @@ function CalendarActions({ size, getTimes }) {
             fontFamily: '"Inter", "Roboto", sans-serif',
             border: 'none',
             background: 'transparent',
+            zIndex: 20,
           }}
           components={{
-            event: ({ event }) => (
-              <Tooltip title={<EventTooltip event={event} />} arrow placement="top">
-                <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 1, 
-                  backgroundColor: `${generateRandomColor()}CC`,
-                  px: 1,
-                  py: 0.5,
-                  borderRadius: '6px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
-                  transition: 'transform 0.2s ease',
-                  '&:hover': { transform: 'translateY(-1px)' }
-                }}>
-                  <Typography 
-                    sx={{ 
-                      color: 'white', 
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}
-                  >
-                    {event.title}
-                  </Typography>
-                </Box>
-              </Tooltip>
-            ),
-            header: ({ label, onNavigate, onView }) => (
-              <CalendarHeader label={label} onNavigate={onNavigate} onView={onView} />
-            ),
-          }}
-        />
-      </Box>
-
-      <AddTaskDialog
-        open={openDialog}
-        onClose={handleCloseDialog}
-        selectedDate={selectedDate}
-        description={description}
-        setDescription={setDescription}
-        file={file}
-        setFile={setFile}
-        loading={loading}
-        setLoading={setLoading}
-        selectedTab={selectedTab}
-        setSelectedTab={setSelectedTab}
-        dailyWork={dailyWork}
-        refetch={refetch}
-        handleDelete={handleDelete}
-      />
-      
-      <Popover
-        open={Boolean(anchorEl)}
-        anchorEl={anchorEl}
-        onClose={handlePopoverClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        PaperProps={{ 
-          sx: { 
-            p: 3, 
-            borderRadius: 2, 
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-            width: 320
-          } 
-        }}
-      >
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: '#1f2937' }}>
-          Add Your Feedback
-        </Typography>
-        <TextField
-          label="Your comments"
-          value={feedback}
-          onChange={handleFeedbackChange}
-          fullWidth
-          multiline
-          rows={3}
-          variant="outlined"
-          placeholder="What do you think about this work?"
-          InputProps={{
-            sx: { borderRadius: '8px' }
-          }}
-          sx={{ 
-            mb: 3,
-            '& .MuiOutlinedInput-root': {
-              '&:hover fieldset': { borderColor: '#6366f1' },
-              '&.Mui-focused fieldset': { borderColor: '#6366f1' },
+            event: ({ event }) => {
+              const dateKey = moment(event.start).tz('UTC').format('YYYY-MM-DD');
+              const eventsOnDate = eventsByDate[dateKey] || [];
+              const dotColor = eventsOnDate[0]?.color || '#dc2626';
+              return (
+                <Tooltip
+                  title={
+                    <DateTooltip
+                      events={eventsOnDate}
+                      getEmployeeName={getEmployeeName}
+                    />
+                  }
+                  arrow
+                  placement="top"
+                >
+                  <span className="flex items-center">
+                    <span
+                      className="event-dot"
+                      style={{
+                        border: `2px solid ${dotColor}`,
+                        width: '6px',
+                        height: '6px',
+                      }}
+                      title={eventsOnDate.map(e => e.title).join(', ')}
+                    ></span>
+                  </span>
+                </Tooltip>
+              );
             },
+            header: ({ label }) => (
+              <div className="flex justify-center items-center mb-4 px-2">
+                <h3 className="text-lg font-semibold text-gray-800">{label}</h3>
+              </div>
+            ),
           }}
         />
-        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-          <Button
-            onClick={handlePopoverClose}
-            sx={{
-              textTransform: 'none',
-              color: '#6b7280',
-              fontWeight: 500,
-              '&:hover': { bgcolor: '#f3f4f6' },
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmitFeedback}
-            variant="contained"
-            disabled={loading || !feedback.trim()}
-            sx={{
-              textTransform: 'none',
-              bgcolor: '#6366f1',
-              fontWeight: 600,
-              borderRadius: '8px',
-              '&:hover': { bgcolor: '#4f46e5' },
-              '&:disabled': { bgcolor: '#d1d5db' },
-            }}
-          >
-            {loading ? <CircularProgress size={20} color="inherit" /> : 'Submit Feedback'}
-          </Button>
-        </Box>
-      </Popover>
-    </Card>
+        <AddTaskDialog
+          open={openDialog}
+          onClose={handleCloseDialog}
+          selectedDate={selectedDate}
+          description={description}
+          setDescription={setDescription}
+          file={file}
+          setFile={setFile}
+          loading={loadingState}
+          setLoading={setLoadingState}
+          selectedTab={selectedTab}
+          setSelectedTab={setSelectedTab}
+          dailyWork={dailyWork}
+          refetch={refetch}
+          handleDelete={handleDelete}
+        />
+      </div>
+      <div className="p-4 border-t border-gray-200">
+        <h4 className="text-sm font-semibold text-gray-800 mb-2">Legend</h4>
+        <div className="flex gap-4">
+          {legendItems.map((item, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <span className="event-dot" style={{ border: `2px solid ${item.color}` }}></span>
+              <span className="text-xs text-gray-600">{item.type}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
-function generateRandomColor() {
-  const colors = [
-    '#6366f1', // Indigo
-    '#8b5cf6', // Violet
-    '#ec4899', // Pink
-    '#f43f5e', // Rose
-    '#10b981', // Emerald
-    '#14b8a6', // Teal
-    '#06b6d4', // Cyan
-    '#0ea5e9', // Sky
-    '#3b82f6', // Blue
-    '#8b5cf6', // Violet
-    '#a855f7', // Purple
-  ];
-  return colors[Math.floor(Math.random() * colors.length)];
+function DateTooltip({ events, getEmployeeName }) {
+  return (
+    <div className="p-3 max-w-sm bg-gray-900 text-white rounded-lg shadow-md max-h-60 overflow-y-auto">
+      {events.map((event, index) => (
+        <div key={`${event.id}-${event.type}-${index}`} className="mb-3 last:mb-0">
+          <div className="flex items-center justify-between mb-1">
+            <h4 className="text-sm font-semibold text-white">{event.title}</h4>
+            <p className="text-xs font-light text-gray-300">
+              Created: {moment(event.createdAt).tz('Asia/Kolkata').format('MMM D, YYYY')}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 mb-1">
+            <CalendarToday className="text-gray-300 text-xs" />
+            <span className="text-gray-300 text-xs">
+              {`${moment(event.start).tz('Asia/Kolkata').format('MMMM D, YYYY, h:mm A')} - ${moment(event.end).tz('Asia/Kolkata').format('h:mm A')}`}
+            </span>
+          </div>
+          <p className="text-gray-300 text-xs mt-2">{event.details}</p>
+          <p className="text-gray-300 text-xs mt-1">Type: {event.type || 'N/A'}</p>
+          {event.type === 'meeting' && (
+            <>
+              <p className="text-gray-300 text-xs mt-1">Host: {event.host || 'N/A'}</p>
+              <p className="text-gray-300 text-xs mt-1">By: {event.by || 'N/A'}</p>
+              <p className="text-gray-300 text-xs mt-1">For: {event.for?.join(', ') || 'N/A'}</p>
+              {event.link && (
+                <a
+                  href={event.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-300 underline"
+                >
+                  Meeting Link
+                </a>
+              )}
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
-function CalendarView({ size, getTimes }) {
+function CalendarView({ size, getTimes, getEmployeeName }) {
   return (
     <DndProvider backend={HTML5Backend}>
-      <CalendarActions size={size} getTimes={getTimes} />
+      <CalendarActions
+        size={size}
+        getTimes={getTimes}
+        getEmployeeName={getEmployeeName}
+      />
     </DndProvider>
-  );
-}
-
-function EventTooltip({ event }) {
-  return (
-    <Box sx={{ p: 1.5, maxWidth: 300 }}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-        {event.title}
-      </Typography>
-      
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-        <CalendarToday sx={{ fontSize: 14, color: '#6b7280' }} />
-        <Typography variant="body2" sx={{ color: '#4b5563' }}>
-          {moment(event.start).format('MMM D, YYYY • h:mm A')}
-        </Typography>
-      </Box>
-      
-      <Typography variant="body2" sx={{ color: '#6b7280', mt: 1 }}>
-        {event.details}
-      </Typography>
-    </Box>
-  );
-}
-
-function CalendarHeader({ label }) {
-  return (
-    <Box sx={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center',
-      mb: 2,
-      px: 1
-    }}>
-      <Typography variant="h6" sx={{ fontWeight: 600, color: '#1f2937' }}>
-        {label}
-      </Typography>
-    </Box>
   );
 }
 

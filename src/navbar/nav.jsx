@@ -24,7 +24,8 @@ import {
   WifiPassword,
   CheckCircle,
   Error,
-  Payment
+  Payment,
+  LocalAtm
 } from '@mui/icons-material';
 import { styled } from '@mui/system';
 import { useAuth } from '../middlewares/auth';
@@ -51,7 +52,8 @@ const Navbar = () => {
     { path: '/Document', name: 'Documents', icon: <Description />, section: 'Employee' },
     { path: '/calendar', name: 'Calendar', icon: <CalendarToday />, section: 'Menu' },
     { path: '/profileleave', name: 'Leave', icon: <Event />, section: 'Employee' },
-    { path: '/profilepayroll', name: 'Payroll', icon: <Payment />, section: 'Employee'}
+    { path: '/profilepayroll', name: 'Payroll', icon: <Payment />, section: 'Employee'},
+    { path: '/reimbursement', name: 'Reimbursement', icon: <LocalAtm />, section: 'Employee'}
   ];
 
   const pathToIndex = routes.reduce((acc, route, index) => ({
