@@ -1,605 +1,790 @@
-import React, { useState, useRef } from 'react';
-import {
-  Box,
-  Typography,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  Button,
-  TextField,
-  CircularProgress,
-  IconButton,
-  Tabs,
-  Tab,
-  Paper,
-  Fade,
-  Tooltip,
-  Avatar,
-  Link
-} from '@mui/material';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTheme } from '@emotion/react';
-import { useDrop } from 'react-dnd';
-import AttachFileIcon from '@mui/icons-material/AttachFile';
+import { useQueryClient } from '@tanstack/react-query';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CloseIcon from '@mui/icons-material/Close';
 import FeedbackIcon from '@mui/icons-material/Feedback';
 import DeleteIcon from '@mui/icons-material/Delete';
-import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
-import PersonIcon from '@mui/icons-material/Person';
-import axios from 'axios';
-import { server_url } from '../../utils/server';
+import Assignment from '@mui/icons-material/Assignment';
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
+import EventIcon from '@mui/icons-material/Event';
+import Timelapse from '@mui/icons-material/Timelapse';
+import FileCopy from '@mui/icons-material/FileCopy';
+import VideoCall from '@mui/icons-material/VideoCall';
+import KeyboardDoubleArrowRight from '@mui/icons-material/KeyboardDoubleArrowRight';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import moment from 'moment-timezone';
+import { useGet } from '../../hooks/useApi';
+import TaskTab from './TaskTab';
+import MeetingTab from './MeetingTab';
+import EventTab from './EventTab';
 import GetFileThumbnail from '../Profile/getFileThumnail';
-import moment from 'moment';
 
 function AddTaskDialog({
   open,
   onClose,
   selectedDate,
+  selectedDateRange,
   description,
   setDescription,
   file,
   setFile,
-  loading,
-  setLoading,
-  selectedTab,
-  setSelectedTab,
   dailyWork,
-  refetch,
   handleDelete,
   handlePopoverOpen,
   openFeedbackIndex,
-  handleToggleFeedback
+  handleToggleFeedback,
 }) {
   const theme = useTheme();
-  const fileInputRef = useRef(null);
-  const [dragActive, setDragActive] = useState(false);
+  const queryClient = useQueryClient();
+  const [mainTab, setMainTab] = useState(0); // Default to Tasks tab
+  const [subTab, setSubTab] = useState(1); // Default to View tab
+  const [errorMessage, setErrorMessage] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // Align with API's limit
 
-  const handleDragEnter = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(true);
+  // Normalize dates to UTC ISO strings
+  const normalizedSelectedDate = selectedDate && moment(selectedDate).isValid()
+    ? moment(selectedDate).tz('UTC').startOf('day').toISOString()
+    : null;
+  const normalizedDateRange = selectedDateRange?.start && selectedDateRange?.end && moment(selectedDateRange.start).isValid() && moment(selectedDateRange.end).isValid()
+    ? {
+        start: moment(selectedDateRange.start).tz('UTC').startOf('day').toISOString(),
+        end: moment(selectedDateRange.end).tz('UTC').startOf('day').toISOString(),
+      }
+    : null;
+
+  // Use single date for queries (selectedDate or dateRange.start)
+  const queryDate = normalizedSelectedDate || normalizedDateRange?.start;
+
+  // Debugging logs
+  console.log('AddTaskDialog - Received selectedDate:', selectedDate);
+  console.log('AddTaskDialog - Received selectedDateRange:', selectedDateRange);
+  console.log('AddTaskDialog - Normalized selectedDate:', normalizedSelectedDate);
+  console.log('AddTaskDialog - Normalized selectedDateRange:', normalizedDateRange);
+  console.log('AddTaskDialog - Query date:', queryDate);
+
+  // Fetch data for Tasks, Meetings, and Events for the specific date
+  const { data: tasksData, isLoading: tasksLoading, error: tasksError } = useGet(
+    '/employee/daily-work/get',
+    { date: queryDate ? moment(queryDate).tz('UTC').format('YYYY-MM-DD') : null, page: currentPage, limit: itemsPerPage },
+    {},
+    { queryKey: ['tasks', queryDate, currentPage], enabled: !!queryDate }
+  );
+  const { data: meetingsData, isLoading: meetingsLoading, error: meetingsError } = useGet(
+    '/meetings/get',
+    { date: queryDate ? moment(queryDate).tz('UTC').format('YYYY-MM-DD') : null, page: currentPage, limit: itemsPerPage },
+    {},
+    { queryKey: ['meetings', queryDate, currentPage], enabled: !!queryDate }
+  );
+  const { data: eventsData, isLoading: eventsLoading, error: eventsError } = useGet(
+    '/event',
+    { date: queryDate ? moment(queryDate).tz('UTC').format('YYYY-MM-DD') : null, page: currentPage, limit: itemsPerPage },
+    {},
+    { queryKey: ['events', queryDate, currentPage], enabled: !!queryDate }
+  );
+  const { data: employees, error: employeesError } = useGet(
+    '/employee/all',
+    {},
+    {},
+    { queryKey: ['employees'] }
+  );
+
+  // Normalize data
+  const tasks = Array.isArray(tasksData?.data?.data?.data) ? tasksData.data.data.data : [];
+  const meetings = Array.isArray(meetingsData?.data?.data?.data)
+    ? meetingsData.data.data.data.map(meeting => ({
+        ...meeting,
+        start_time_Date: meeting.meetingDate,
+        end_time_Date: moment(meeting.meetingDate).add(parseInt(meeting.meetingDuration), 'minutes').toISOString(),
+        meetingName: meeting.meetingName,
+        meetingDescription: meeting.meetingAgenda,
+        registrants: meeting.access
+      }))
+    : [];
+  const events = Array.isArray(eventsData?.data)
+    ? eventsData.data
+    : Array.isArray(eventsData?.data?.data)
+    ? eventsData.data.data
+    : [];
+
+  // Normalize pagination data
+  const pagination = {
+    tasks: tasksData?.data?.pagination || {
+      total: tasks.length,
+      totalPages: Math.ceil(tasks.length / itemsPerPage),
+      currentPage: currentPage,
+      limit: itemsPerPage,
+    },
+    meetings: meetingsData?.data?.pagination || {
+      total: meetings.length,
+      totalPages: Math.ceil(meetings.length / itemsPerPage),
+      currentPage: currentPage,
+      limit: itemsPerPage,
+    },
+    events: eventsData?.data?.pagination || {
+      total: events.length,
+      totalPages: Math.ceil(events.length / itemsPerPage),
+      currentPage: currentPage,
+      limit: itemsPerPage,
+    },
   };
 
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
+  console.log('AddTaskDialog - Tasks:', tasks);
+  console.log('AddTaskDialog - Meetings:', meetings);
+  console.log('AddTaskDialog - Events:', events);
+  console.log('AddTaskDialog - Pagination:', pagination);
+  console.log('AddTaskDialog - Employees:', employees);
+
+  useEffect(() => {
+    // Update currentPage based on API pagination
+    if (mainTab === 0 && tasksData?.data?.pagination?.page) {
+      setCurrentPage(tasksData.data.pagination.page);
+    } else if (mainTab === 1 && meetingsData?.data?.pagination?.page) {
+      setCurrentPage(meetingsData.data.pagination.page);
+    } else if (mainTab === 2 && eventsData?.data?.pagination?.page) {
+      setCurrentPage(eventsData.data.pagination.page);
+    }
+  }, [mainTab, tasksData, meetingsData, eventsData]);
+
+  const handleTaskAdded = useCallback(() => {
+    queryClient.invalidateQueries(['tasks', queryDate, currentPage]);
+    setCurrentPage(1);
+    onClose();
+  }, [queryClient, queryDate, onClose]);
+
+  const handleMeetingAdded = useCallback(() => {
+    queryClient.invalidateQueries(['meetings', queryDate, currentPage]);
+    setCurrentPage(1);
+    onClose();
+  }, [queryClient, queryDate, onClose]);
+
+  const handleEventAdded = useCallback(() => {
+    queryClient.invalidateQueries(['events', queryDate, currentPage]);
+    setCurrentPage(1);
+    onClose();
+  }, [queryClient, queryDate, onClose]);
+
+  const getEmployeeName = (employee) => {
+    if (!employee) return 'Unknown';
+    if (typeof employee === 'object' && employee?._id && employee?.name) return employee.name;
+    if (!employees?.data?.message?.[0]) return 'Unknown';
+    return employees.data.message[0].find((emp) => emp?._id === employee?._id)?.name || 'Unknown';
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const getStatus = (date) => {
+    if (!date || !moment(date).isValid()) return 'Unknown';
+    const now = moment().tz('UTC');
+    const eventTime = moment(date).tz('UTC');
+    if (now.isAfter(eventTime)) return 'Completed';
+    if (now.isBefore(eventTime)) return 'Upcoming';
+    return 'Ongoing';
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0];
-      setFile(droppedFile);
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Completed':
+        return 'bg-green-500';
+      case 'Ongoing':
+        return 'bg-orange-500';
+      case 'Upcoming':
+        return 'bg-blue-500';
+      default:
+        return 'bg-gray-500';
     }
   };
 
-  const handleFileSelect = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
-
-  const triggerFileInput = () => {
-    fileInputRef.current.click();
-  };
-
-  const handleSubmit = async () => {
-    if (!description.trim() || !file) {
+  const copyToClipboard = (text) => {
+    if (!text || typeof text !== 'string') {
+      setErrorMessage('No valid link to copy');
       return;
     }
-    
-    setLoading(true);
-    const formData = new FormData();
-    formData.append('description', description);
-    formData.append('date', selectedDate);
-    formData.append('file', file);
-    
-    try {
-      const config = {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        withCredentials: true,
-      };
-      
-      await axios.post(`${server_url}/emplyoee/daily-work/create`, formData, config);
-      onClose();
-      refetch();
-    } catch (error) {
-      console.error("Failed to upload file:", error);
-    } finally {
-      setLoading(false);
+    navigator.clipboard.writeText(text).then(() => {
+      setErrorMessage('Link copied to clipboard!');
+      setTimeout(() => setErrorMessage(''), 2000);
+    }).catch(() => {
+      setErrorMessage('Failed to copy link');
+    });
+  };
+
+  const getDatesInRange = (start, end) => {
+    if (!start || !end || !moment(start).isValid() || !moment(end).isValid()) return [];
+    const startDate = moment(start).tz('UTC').startOf('day');
+    const endDate = moment(end).tz('UTC').startOf('day');
+    const dates = [];
+    let currentDate = startDate.clone();
+    while (currentDate.isSameOrBefore(endDate)) {
+      dates.push(currentDate.toISOString());
+      currentDate.add(1, 'day');
     }
+    return dates;
   };
 
-  const formatDate = (date) => {
-    return moment(date).format('dddd, MMMM D, YYYY');
-  };
+  const renderContent = (data, type) => {
+    console.log('renderContent - type:', type, 'data:', data, 'currentPage:', currentPage);
 
-  const getFileSizeText = (file) => {
-    const size = file.size;
-    if (size < 1024) return `${size} B`;
-    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  };
+    if (!queryDate) {
+      return (
+        <div className="flex flex-col items-center justify-center py-4 text-center">
+          <p className="text-red-500 font-medium text-xs">No date selected</p>
+        </div>
+      );
+    }
 
-  const [{ isOver }, drop] = useDrop({
-    accept: 'file',
-    drop: (item) => {
-      const validFiles = item.files;
-      if (validFiles.length > 0) setFile(validFiles[0]);
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver(),
-    }),
-  });
-
-  function generetRandomColor() {
-    const colors = [
-      '#6366f1', // Indigo
-      '#8b5cf6', // Violet
-      '#ec4899', // Pink
-      '#f43f5e', // Rose
-      '#10b981', // Emerald
-      '#14b8a6', // Teal
-      '#06b6d4', // Cyan
-      '#0ea5e9', // Sky
-      '#3b82f6', // Blue
-      '#8b5cf6', // Violet
-      '#a855f7', // Purple
-    ];
-    return colors[Math.floor(Math.random() * colors.length)];
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      TransitionComponent={Fade}
-      transitionDuration={300}
-      maxWidth="md"
-      PaperProps={{
-        sx: {
-          minWidth: 640,
-          borderRadius: '16px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
-          background: 'linear-gradient(135deg, #ffffff 0%, #f9fafb 100%)',
-          fontFamily: '"Inter", "Roboto", sans-serif',
-          overflow: 'hidden',
-        },
-      }}
-    >
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        px: 3,
-        pt: 3,
-        pb: 1
-      }}>
-        <Box>
-          <Typography
-            variant="h5"
-            sx={{
-              fontWeight: 600,
-              color: '#1a1a1a',
-              letterSpacing: '-0.02em',
-            }}
+    if (tasksLoading && type === 'tasks') {
+      return (
+        <div className="flex flex-col items-center justify-center py-4 text-center">
+          <svg
+            className="animate-spin h-5 w-5 text-indigo-500 mb-2"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
           >
-            {selectedTab === 0 ? 'Add New Task' : 'Your Daily Work'}
-          </Typography>
-          {selectedDate && (
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                color: '#6b7280', 
-                display: 'flex', 
-                alignItems: 'center',
-                gap: 0.5,
-                mt: 0.5
-              }}
-            >
-              <CalendarTodayIcon sx={{ fontSize: 14 }} />
-              {formatDate(selectedDate)}
-            </Typography>
-          )}
-        </Box>
-        <IconButton 
-          onClick={onClose}
-          sx={{
-            color: '#6b7280',
-            '&:hover': { bgcolor: '#f3f4f6' }
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
-      </Box>
-      
-      <Tabs
-        value={selectedTab}
-        onChange={(event, newValue) => setSelectedTab(newValue)}
-        sx={{
-          px: 3,
-          mb: 2,
-          '& .MuiTabs-indicator': { backgroundColor: '#6366f1', height: '3px' },
-        }}
-      >
-        <Tab
-          icon={<AddCircleOutlineIcon sx={{ fontSize: 16, mr: 1 }} />}
-          iconPosition="start"
-          label="Add Task"
-          sx={{
-            textTransform: 'none',
-            fontWeight: 600,
-            color: selectedTab === 0 ? '#6366f1' : '#6b7280',
-            fontSize: '0.9rem',
-            px: 2,
-            // minHeight:3,
-            minHeight: '48px'
-          }}
-        />
-        <Tab
-          icon={<VisibilityIcon sx={{ fontSize: 16, mr: 1 }} />}
-          iconPosition="start"
-          label="View Work"
-          sx={{
-            textTransform: 'none',
-            fontWeight: 600,
-            color: selectedTab === 1 ? '#6366f1' : '#6b7280',
-            fontSize:  '0.9rem',
-            px: 2,
-            minHeight: '48px'
-          }}
-        />
-      </Tabs>
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+          <p className="text-gray-500 font-medium text-xs">Loading {type}...</p>
+        </div>
+      );
+    }
 
-      <DialogContent sx={{ p: 3, pb: 1 }}>
-        {selectedTab === 0 && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="Task Description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              fullWidth
-              placeholder="What did you work on today?"
-              variant="outlined"
-              InputProps={{
-                sx: { borderRadius: '10px' }
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '10px',
-                  bgcolor: '#fff',
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-                  '&:hover fieldset': { borderColor: '#6366f1' },
-                  '&.Mui-focused fieldset': { borderColor: '#6366f1' },
-                },
-                '& .MuiInputLabel-root': { color: '#6b7280', fontWeight: 500 },
-              }}
-            />
-            
-            <Box
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              ref={drop}
-              sx={{
-                border: `2px dashed ${dragActive || isOver ? '#6366f1' : '#d1d5db'}`,
-                borderRadius: '12px',
-                p: 3,
-                textAlign: 'center',
-                bgcolor: dragActive || isOver ? '#eef2ff' : '#f9fafb',
-                transition: 'all 0.2s ease-in-out',
-                '&:hover': { borderColor: '#6366f1', bgcolor: '#eef2ff' },
-              }}
+    if (tasksError && type === 'tasks') {
+      return (
+        <div className="flex flex-col items-center justify-center py-4 text-center">
+          <p className="text-red-500 font-medium text-xs">
+            Error loading tasks: {tasksError?.message || 'Unknown error'}
+          </p>
+        </div>
+      );
+    }
+
+    if (meetingsLoading && type === 'meetings') {
+      return (
+        <div className="flex flex-col items-center justify-center py-4 text-center">
+          <svg
+            className="animate-spin h-5 w-5 text-indigo-500 mb-2"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+          <p className="text-gray-500 font-medium text-xs">Loading {type}...</p>
+        </div>
+      );
+    }
+
+    if (meetingsError && type === 'meetings') {
+      return (
+        <div className="flex flex-col items-center justify-center py-4 text-center">
+          <p className="text-red-500 font-medium text-xs">
+            Error loading meetings: {meetingsError?.message || 'Unknown error'}
+          </p>
+        </div>
+      );
+    }
+
+    if (eventsLoading && type === 'events') {
+      return (
+        <div className="flex flex-col items-center justify-center py-4 text-center">
+          <svg
+            className="animate-spin h-5 w-5 text-indigo-500 mb-2"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+          <p className="text-gray-500 font-medium text-xs">Loading {type}...</p>
+        </div>
+      );
+    }
+
+    if (eventsError && type === 'events') {
+      return (
+        <div className="flex flex-col items-center justify-center py-4 text-center">
+          <p className="text-red-500 font-medium text-xs">
+            Error loading events: {eventsError?.message || 'Unknown error'}
+          </p>
+        </div>
+      );
+    }
+
+    const safeData = Array.isArray(data) ? data : [];
+    if (safeData.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-4 text-center">
+          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mb-2">
+            <CalendarTodayIcon className="text-gray-400 text-sm" />
+          </div>
+          <p className="text-gray-500 font-medium mb-1 text-xs">No {type} logged for this date</p>
+          <p className="text-gray-400 text-[10px]">Switch to the "Add {type}" tab to log your {type}</p>
+        </div>
+      );
+    }
+
+    const totalItems = type === 'tasks' ? pagination.tasks.total :
+                       type === 'meetings' ? pagination.meetings.total :
+                       pagination.events.total;
+    const totalPages = type === 'tasks' ? pagination.tasks.totalPages :
+                       type === 'meetings' ? pagination.meetings.totalPages :
+                       pagination.events.totalPages;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedData = safeData.slice(startIndex, endIndex);
+    console.log('renderContent - Pagination:', { totalItems, totalPages, startIndex, endIndex, paginatedData });
+
+    return (
+      <div className="flex flex-col gap-2 max-h-[150px] overflow-y-auto p-2">
+        {paginatedData.map((item, index) => {
+          const isMeeting = type === 'meetings';
+          const isEvent = type === 'events';
+          const isDailyWork = type === 'tasks';
+          const duration = isMeeting ? parseInt(item.meetingDuration) || 0 : 0;
+          const status = isMeeting ? getStatus(item.start_time_Date) : isEvent ? getStatus(item.start) : item.status;
+          const statusColor = status ? getStatusColor(status) : null;
+          return (
+            <div
+              key={item._id || index}
+              className="mb-2 rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow relative"
             >
-              {!file ? (
-                <>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center',
-                    gap: 2
-                  }}>
-                    <AttachFileIcon sx={{ fontSize: 36, color: '#6366f1' }} />
-                    <Typography variant="body1" sx={{ color: '#4b5563', fontWeight: 500 }}>
-                      Drag & drop a file here, or
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      onClick={triggerFileInput}
-                      sx={{
-                        textTransform: 'none',
-                        color: '#6366f1',
-                        borderColor: '#6366f1',
-                        borderRadius: '8px',
-                        px: 3,
-                        py: 1,
-                        fontWeight: 600,
-                        '&:hover': { bgcolor: '#eef2ff', borderColor: '#4f46e5' },
-                      }}
-                    >
-                      Browse Files
-                    </Button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      hidden
-                      onChange={handleFileSelect}
-                    />
-                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>
-                      Supported file types: images, PDFs, documents, videos
-                    </Typography>
-                  </Box>
-                </>
-              ) : (
-                <Box sx={{ 
-                  mt: 1, 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between',
-                  bgcolor: 'white', 
-                  p: 2, 
-                  borderRadius: '8px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <GetFileThumbnail fileType={file.type} fileUrl={URL.createObjectURL(file)} />
-                    <Box>
-                      <Typography variant="body1" sx={{ color: '#1f2937', fontWeight: 500 }}>
-                        {file.name}
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                        {getFileSizeText(file)}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  <IconButton 
-                    onClick={() => setFile(null)} 
-                    size="small"
-                    sx={{ color: '#6b7280' }}
-                  >
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                </Box>
+              {(isMeeting || isEvent || isDailyWork) && status !== 'Unknown' && (
+                <div className={`absolute top-1 right-1 h-2 w-2 rounded-full ${statusColor}`} />
               )}
-            </Box>
-          </Box>
-        )}
-
-        {selectedTab === 1 && (
-          <Box sx={{ 
-            maxHeight: '500px', 
-            overflow: 'auto', 
-            pr: 1, 
-            width: '100%',
-            display: 'flex', 
-            flexWrap: 'wrap',
-            gap: 2
-          }}>
-            {dailyWork.length > 0 ? (
-              <Box sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 1,
-                padding: 1,
-                width: '110vh'
-              }}>
-                {dailyWork.map((work, index) => (
-                  <Paper
-                    key={index}
-                    elevation={1}
-                    sx={{
-                      p: 2,
-                      borderRadius: '12px',
-                      flex: '1 0 calc(33.333% - 0px)',
-                      width: '33%',
-                      bgcolor: '#fff',
-                      height: 'auto',
-                      minHeight: openFeedbackIndex === index ? 'auto' : '20lvh',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-                      transition: 'transform 0.2s ease',
-                      border: '1px solid #f3f4f6',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' },
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Box>
-                        <Typography variant="body1" sx={{ fontWeight: 600, color: '#1f2937', textAlign: 'left' }}>
-                          {work.description}  <span><KeyboardDoubleArrowRightIcon sx={{ fontSize: 16, color: '#6366f1', ml: 2 }}/>     <PersonIcon sx={{ fontSize: 16, color: '#6366f1' }} /> {work?.employeeId?.name}</span>
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <CalendarTodayIcon sx={{ fontSize: 14 }} />
-                          {new Date(work.date).toLocaleDateString('en-US', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Tooltip title="Add Feedback">
-                          <IconButton
-                            onClick={(e) => handlePopoverOpen(e, work.file, work._id)}
-                            size="small"
-                            sx={{ 
-                              color: '#6366f1', 
-                              bgcolor: '#eef2ff', 
-                              '&:hover': { bgcolor: '#dbeafe' } 
-                            }}
-                          >
-                            <FeedbackIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete Task">
-                          <IconButton
-                            onClick={() => handleDelete(work._id)}
-                            size="small"
-                            sx={{ 
-                              color: '#ef4444', 
-                              bgcolor: '#fef2f2', 
-                              '&:hover': { bgcolor: '#fee2e2' } 
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </Box>
-                    
-                    <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Link to={work.file} target="_blank" rel="noopener noreferrer">
-                        <Box sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center',
-                          p: 1,
-                          borderRadius: '8px',
-                          border: '1px solid #e5e7eb',
-                          bgcolor: '#f9fafb',
-                          '&:hover': { bgcolor: '#f3f4f6' }
-                        }}>
-                          <GetFileThumbnail fileType={work.fileType} fileUrl={work.file} />
-                          <Typography variant="body2" sx={{ ml: 1, color: '#4b5563' }}>
-                            View File
-                          </Typography>
-                        </Box>
-                      </Link>
-                    </Box>
-                    
-                    {work.feedBack?.length > 0 && (
+              <div className="p-2">
+                <div className="flex justify-between items-center mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <div
+                      className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                        isDailyWork
+                          ? 'bg-green-100 text-green-600'
+                          : isMeeting
+                          ? 'bg-blue-100 text-blue-600'
+                          : 'bg-purple-100 text-purple-600'
+                      }`}
+                    >
+                      {isDailyWork ? (
+                        <Assignment fontSize="small" />
+                      ) : isMeeting ? (
+                        <MeetingRoomIcon fontSize="small" />
+                      ) : (
+                        <EventIcon fontSize="small" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-800">
+                        {isDailyWork
+                          ? item.description || 'No Description'
+                          : isMeeting
+                          ? item.meetingName || 'Unnamed Meeting'
+                          : item.title || 'Unnamed Event'}
+                      </h3>
+                      <p className="text-gray-500 text-[10px] mt-0.5 flex items-center gap-1">
+                        <CalendarTodayIcon className="text-[9px]" />
+                        {isDailyWork
+                          ? item.startDate === item.endDate
+                            ? moment(item.startDate).tz('Asia/Kolkata').format('MMMM D, YYYY')
+                            : `${moment(item.startDate).tz('Asia/Kolkata').format('MMMM D, YYYY')} - ${moment(item.endDate).tz('Asia/Kolkata').format('MMMM D, YYYY')}`
+                          : isMeeting
+                          ? `${moment(item.start_time_Date).tz('Asia/Kolkata').format('MMMM D, YYYY, h:mm A')} - ${moment(item.end_time_Date).tz('Asia/Kolkata').format('h:mm A')}`
+                          : `${moment(item.start).tz('Asia/Kolkata').format('MMMM D, YYYY, h:mm A')} - ${moment(item.end).tz('Asia/Kolkata').format('h:mm A')}`}
+                      </p>
+                      {isMeeting && (
+                        <div className="flex items-center gap-1 text-gray-500 text-[10px] mt-0.5">
+                          <Timelapse className="text-[9px]" />
+                          <span>
+                            {item.meetingDuration || duration
+                              ? `${item.meetingDuration || duration} min`
+                              : 'Duration Unknown'}
+                          </span>
+                        </div>
+                      )}
+                      {isEvent && (
+                        <p className="text-gray-500 text-[10px] mt-0.5">
+                          Type: {item.type || 'N/A'}
+                        </p>
+                      )}
+                      {isDailyWork && (
+                        <p className="text-gray-500 text-[10px] mt-0.5">
+                          Assigned To: {getEmployeeName(item.assignFor)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {isDailyWork ? (
                       <>
-                        <Button 
-                          onClick={() => handleToggleFeedback(index)} 
-                          size="small" 
-                          sx={{ mt: 2, color: '#4f46e5', textTransform: 'none' }}
+                        <button
+                          onClick={() => handleToggleFeedback(index)}
+                          className="bg-gray-100 w-6 h-6 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
                         >
-                          {openFeedbackIndex === index ? 'Hide Feedback' : 'Show Feedback'}
-                        </Button>
-
-                        {openFeedbackIndex === index && (
-                          <Box sx={{ mt: 2, bgcolor: '#f9fafb', p: 2, borderRadius: '8px' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#1f2937', mb: 1 }}>
-                              Feedback:
-                            </Typography>
-                            {work.feedBack.map((fb, idx) => (
-                              <Box key={idx} sx={{ 
-                                display: 'flex', 
-                                alignItems: 'flex-start', 
-                                gap: 1.5, 
-                                mt: idx > 0 ? 2 : 0,
-                                pb: idx < work.feedBack.length - 1 ? 2 : 0,
-                                borderBottom: idx < work.feedBack.length - 1 ? '1px solid #e5e7eb' : 'none'
-                              }}>
-                                <Avatar sx={{ 
-                                  width: 32, 
-                                  height: 32, 
-                                  bgcolor: generetRandomColor(),
-                                  fontSize: '14px',
-                                  fontWeight: 600
-                                }}>
-                                  {(fb.feedbackGiverName || 'A').charAt(0).toUpperCase()}
-                                </Avatar>
-                                <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#4b5563' }}>
-                                    {fb.feedbackGiverName || user?.companyName}
-                                  </Typography>
-                                  <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
-                                    "{fb.feedback}"
-                                  </Typography>
-                                </Box>
-                              </Box>
-                            ))}
-                          </Box>
+                          {openFeedbackIndex === index ? (
+                            <KeyboardDoubleArrowRight className="text-indigo-500 text-[9px]" />
+                          ) : (
+                            <FeedbackIcon className="text-indigo-500 text-[9px]" />
+                          )}
+                        </button>
+                        <div className="group relative">
+                          <button
+                            onClick={(e) => handlePopoverOpen(e, item.file, item._id)}
+                            className="bg-blue-100 w-6 h-6 rounded-full flex items-center justify-center hover:bg-blue-200 transition-colors"
+                          >
+                            <FeedbackIcon className="text-[9px]" />
+                          </button>
+                          <span className="absolute hidden group-hover:block bg-gray-800 text-white text-[9px] rounded-md px-1 py-0.5 -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                            Add Feedback
+                          </span>
+                        </div>
+                        <div className="group relative">
+                          <button
+                            onClick={() => handleDelete(item._id)}
+                            className="bg-red-100 w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-200 transition-colors"
+                          >
+                            <DeleteIcon className="text-[9px]" />
+                          </button>
+                          <span className="absolute hidden group-hover:block bg-gray-800 text-white text-[9px] rounded-md px-1 py-0.5 -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                            Delete Task
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <span
+                        className={`text-white ${statusColor} px-1.5 py-0.5 rounded-full text-[10px] font-medium`}
+                      >
+                        {status}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {isDailyWork && (
+                  <>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="flex-1 p-1.5 border border-gray-200 rounded-lg bg-gray-50">
+                        {item.file && item.fileType ? (
+                          <>
+                            <GetFileThumbnail fileType={item.fileType} fileUrl={item.file} />
+                            <a
+                              href={item.file}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 text-[10px] ml-1 hover:underline"
+                            >
+                              {item.fileType || 'Document'}
+                            </a>
+                          </>
+                        ) : (
+                          <span className="text-gray-500 text-[10px] ml-1">No File</span>
                         )}
+                      </div>
+                    </div>
+                    {item.feedBack?.length > 0 && openFeedbackIndex === index && (
+                      <div className="bg-gray-50 p-2 border border-gray-200 rounded-lg">
+                        <h4 className="text-[10px] font-semibold text-gray-800 mb-1">Feedback</h4>
+                        {item.feedBack.map((fb, idx) => (
+                          <div
+                            key={idx}
+                            className="p-1.5 bg-white mb-1 border border-gray-200 rounded-lg shadow-sm"
+                          >
+                            <p className="text-[10px] text-gray-700">{fb.feedback || 'No feedback text'}</p>
+                            <p className="text-gray-500 text-[9px] text-right mt-0.5">
+                              {fb.feedbackGiverName || 'Imperial Milestones'} •{' '}
+                              {moment(fb.timestamp).tz('Asia/Kolkata').format('MMM D, YYYY')}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+                {(isMeeting || isEvent) && (
+                  <div className="mt-1">
+                    <div className="mb-1">
+                      <p className="text-[10px] font-semibold text-gray-800">
+                        {isMeeting ? 'Agenda' : 'Description'}
+                      </p>
+                      <p className="bg-gray-50 p-1.5 border border-gray-200 rounded-lg text-[10px] text-gray-700">
+                        {item.meetingDescription || item.description || 'No description provided'}
+                      </p>
+                    </div>
+                    {isMeeting && (
+                      <>
+                        <p className="text-gray-500 text-[10px] mt-0.5">
+                          Attendees:{' '}
+                          {item.meetingFor?.length > 0
+                            ? item.meetingFor.map((attendee) => attendee.email).join(', ')
+                            : item.registrants?.length > 0
+                            ? item.registrants.map((id) => getEmployeeName(id)).join(', ')
+                            : 'None'}
+                        </p>
+                        <hr className="mb-1 border-gray-200" />
+                        <div className="flex justify-between items-center">
+                          <button
+                            onClick={() => copyToClipboard(item.meetingLink)}
+                            className={`text-gray-600 text-[10px] flex items-center gap-1 hover:text-gray-800 transition-colors ${
+                              !item.meetingLink ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                            disabled={!item.meetingLink}
+                          >
+                            <FileCopy className="text-[9px]" />
+                            Copy Link
+                          </button>
+                          <a
+                            href={item.meetingLink || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`bg-blue-600 text-white px-2 py-0.5 rounded-lg text-[10px] flex items-center gap-1 hover:bg-blue-700 transition-colors ${
+                              !item.meetingLink ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                            onClick={(e) => !item.meetingLink && e.preventDefault()}
+                          >
+                            <VideoCall fontSize="small" />
+                            Join Meeting
+                          </a>
+                        </div>
                       </>
                     )}
-                  </Paper>
-                ))}
-              </Box>
-            ) : (
-              <Box sx={{ 
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center', 
-                py: 6,
-                width: '100%',
-                textAlign: 'center'
-              }}>
-                <Box sx={{ 
-                  width: 60, 
-                  height: 60, 
-                  borderRadius: '50%', 
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  bgcolor: '#f3f4f6',
-                  mb: 2
-                }}>
-                  <CalendarTodayIcon sx={{ fontSize: 28, color: '#9ca3af' }} />
-                </Box>
-                <Typography sx={{ color: '#6b7280', fontWeight: 500, mb: 1 }}>
-                  No work logged for this date
-                </Typography>
-                <Typography sx={{ color: '#9ca3af', fontSize: '0.875rem' }}>
-                  Switch to the "Add Task" tab to log your work
-                </Typography>
-              </Box>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center p-2 border-t border-gray-200">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-lg ${
+                currentPage === 1
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-indigo-500 hover:bg-indigo-100'
+              }`}
+            >
+              <ChevronLeftIcon className="text-[10px]" />
+              Previous
+            </button>
+            <span className="text-xs text-gray-600">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-lg ${
+                currentPage === totalPages
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-indigo-500 hover:bg-indigo-100'
+              }`}
+            >
+              Next
+              <ChevronRightIcon className="text-[10px]" />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-lg bg-opacity-50 transition-opacity duration-300 ${
+        open ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}
+    >
+      <div className="w-[400px] rounded-xl shadow-lg bg-white font-sans">
+        <div className="flex justify-between items-center px-3 pt-3 pb-1">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {mainTab === 0
+                ? 'Tasks'
+                : mainTab === 1
+                ? 'Meetings'
+                : mainTab === 2
+                ? 'Events'
+                : 'Select an Option'}
+            </h2>
+            {(normalizedDateRange || normalizedSelectedDate) && (
+              <div className="flex items-center gap-1 text-gray-500 mt-1">
+                <CalendarTodayIcon className="text-xs" />
+                <span className="text-xs">
+                  {normalizedDateRange && normalizedDateRange.start !== normalizedDateRange.end
+                    ? `${moment(normalizedDateRange.start).tz('Asia/Kolkata').format('MMM D, YYYY')} - ${moment(normalizedDateRange.end).tz('Asia/Kolkata').format('MMM D, YYYY')}`
+                    : moment(normalizedSelectedDate || normalizedDateRange.start).tz('Asia/Kolkata').format('dddd, MMMM D, YYYY')}
+                </span>
+              </div>
             )}
-          </Box>
-        )}
-      </DialogContent>
-      
-      <DialogActions sx={{ p: 3, pt: 2, bgcolor: '#f9fafb', borderTop: '1px solid #f3f4f6' }}>
-        <Button
-          onClick={onClose}
-          sx={{
-            textTransform: 'none',
-            color: '#6b7280',
-            fontWeight: 600,
-            px: 1,
-            '&:hover': { bgcolor: '#e5e7eb' },
-          }}
-        >
-          Cancel
-        </Button>
-        {selectedTab === 0 && (
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            disabled={loading || !file || !description.trim()}
-            sx={{
-              textTransform: 'none',
-              bgcolor: '#6366f1',
-              px: 1,
-              py: 1,
-              fontWeight: 600,
-              borderRadius: '8px',
-              boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)',
-              '&:hover': { bgcolor: '#4f46e5', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)' },
-              '&:disabled': { bgcolor: '#d1d5db' },
-            }}
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:bg-gray-100 p-1 rounded-full"
           >
-            {loading ? <CircularProgress size={20} color="inherit" /> : 'Save Task'}
-          </Button>
+            <CloseIcon className="text-base" />
+          </button>
+        </div>
+        <div className="flex px-3 mb-2 border-b-2 border-indigo-500">
+          <button
+            className={`flex items-center gap-1 px-2 py-1.5 text-xs font-semibold ${
+              mainTab === 0 ? 'text-indigo-500' : 'text-gray-500'
+            } hover:text-indigo-600`}
+            onClick={() => setMainTab(0)}
+          >
+            <AddCircleOutlineIcon className="text-sm" />
+            Tasks
+          </button>
+          <button
+            className={`flex items-center gap-1 px-2 py-1.5 text-xs font-semibold ${
+              mainTab === 1 ? 'text-indigo-500' : 'text-gray-500'
+            } hover:text-indigo-600`}
+            onClick={() => setMainTab(1)}
+          >
+            <AddCircleOutlineIcon className="text-sm" />
+            Meetings
+          </button>
+          <button
+            className={`flex items-center gap-1 px-2 py-1.5 text-xs font-semibold ${
+              mainTab === 2 ? 'text-indigo-500' : 'text-gray-500'
+            } hover:text-indigo-600`}
+            onClick={() => setMainTab(2)}
+          >
+            <AddCircleOutlineIcon className="text-sm" />
+            Events
+          </button>
+        </div>
+        {mainTab !== null && (
+          <div className="flex px-3 mb-2 border-b border-gray-200">
+            <button
+              className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold ${
+                subTab === 0 ? 'text-indigo-500 border-b-2 border-indigo-500' : 'text-gray-500'
+              } hover:text-indigo-600`}
+              onClick={() => setSubTab(0)}
+            >
+              <AddCircleOutlineIcon className="text-sm" />
+              Add {mainTab === 0 ? 'Task' : mainTab === 1 ? 'Meeting' : 'Event'}
+            </button>
+            <button
+              className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold ${
+                subTab === 1 ? 'text-indigo-500 border-b-2 border-indigo-500' : 'text-gray-500'
+              } hover:text-indigo-600`}
+              onClick={() => setSubTab(1)}
+            >
+              <VisibilityIcon className="text-sm" />
+              View {mainTab === 0 ? 'Tasks' : mainTab === 1 ? 'Meetings' : 'Events'}
+            </button>
+          </div>
         )}
-      </DialogActions>
-    </Dialog>
+        <div className="px-3 pb-2">
+          {errorMessage && (
+            <p className="text-red-500 text-xs mb-2">{errorMessage}</p>
+          )}
+          {employeesError && (
+            <p className="text-red-500 text-xs mb-2">
+              Error loading employees: {employeesError?.message || 'Unknown error'}
+            </p>
+          )}
+          {subTab === 0 && mainTab !== null && (
+            <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto px-1">
+              {mainTab === 0 && (
+                <TaskTab
+                  description={description}
+                  setDescription={setDescription}
+                  file={file}
+                  setFile={setFile}
+                  setErrorMessage={setErrorMessage}
+                  selectedDate={normalizedSelectedDate || normalizedDateRange?.start}
+                  selectedDateRange={normalizedDateRange}
+                  onTaskAdded={handleTaskAdded}
+                />
+              )}
+              {mainTab === 1 && (
+                <MeetingTab
+                  selectedDate={normalizedSelectedDate || normalizedDateRange?.start}
+                  selectedDateRange={normalizedDateRange}
+                  setErrorMessage={setErrorMessage}
+                  onMeetingAdded={handleMeetingAdded}
+                />
+              )}
+              {mainTab === 2 && (
+                <EventTab
+                  selectedDate={normalizedSelectedDate || normalizedDateRange?.start}
+                  selectedDateRange={normalizedDateRange}
+                  description={description}
+                  setDescription={setDescription}
+                  setErrorMessage={setErrorMessage}
+                  onEventAdded={handleEventAdded}
+                />
+              )}
+            </div>
+          )}
+          {subTab === 1 && mainTab !== null && (
+            renderContent(
+              mainTab === 0 ? tasks : mainTab === 1 ? meetings : events,
+              mainTab === 0 ? 'tasks' : mainTab === 1 ? 'meetings' : 'events'
+            )
+          )}
+        </div>
+        <div className="flex justify-end p-3 bg-gray-50 border-t border-gray-100">
+          <button
+            onClick={onClose}
+            className="text-gray-500 font-semibold px-2 py-1 hover:bg-gray-200 rounded text-xs"
+          >
+            Cancel
+          </button>
+          {subTab === 0 && mainTab !== null && (
+            <button
+              onClick={() => {
+                if (mainTab === 0) {
+                  document.querySelector('#task-submit')?.click();
+                } else if (mainTab === 1) {
+                  document.querySelector('#meeting-submit')?.click();
+                } else if (mainTab === 2) {
+                  document.querySelector('#event-submit')?.click();
+                }
+              }}
+              className="ml-2 bg-indigo-500 text-white font-semibold px-2 py-1 rounded-lg shadow-md hover:bg-indigo-600 hover:shadow-lg transition-all duration-200 text-xs"
+            >
+              Save {mainTab === 0 ? 'Task' : mainTab === 1 ? 'Meeting' : 'Event'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

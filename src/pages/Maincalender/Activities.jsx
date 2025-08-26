@@ -1,21 +1,4 @@
-import React, { useState, Component } from "react";
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Avatar,
-  Paper,
-  Divider,
-  IconButton,
-  Tooltip,
-  Button as MuiButton,
-  Chip,
-  Collapse,
-  Popover,
-  TextField,
-  CircularProgress,
-} from "@mui/material";
+import React, { useState, useEffect, useMemo, Component } from "react";
 import {
   Assignment,
   ExpandLess,
@@ -27,11 +10,15 @@ import {
   FileCopy,
   VideoCall,
   Feedback,
+  Event,
+  Close,
+  Person as PersonIcon,
+  CalendarToday as CalendarTodayIcon,
 } from "@mui/icons-material";
-import { useTheme } from "@emotion/react";
-import moment from "moment";
+import moment from "moment-timezone";
 import GetFileThumbnail from "../Profile/getFileThumnail";
 import { Link } from "react-router-dom";
+import { useGet, usePost } from "../../hooks/useApi";
 
 // Error Boundary Component
 class ActivitiesErrorBoundary extends Component {
@@ -44,14 +31,10 @@ class ActivitiesErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <Box sx={{ p: 3, textAlign: "center" }}>
-          <Typography color="error" variant="h6">
-            Something went wrong in the Activities section.
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            Please try refreshing the page or contact support.
-          </Typography>
-        </Box>
+        <div className="p-4 text-center bg-red-50 rounded-lg">
+          <h2 className="text-base text-red-600 font-semibold">Something went wrong</h2>
+          <p className="text-gray-600 text-xs mt-1.5">Please try refreshing the page or contact support.</p>
+        </div>
       );
     }
     return this.props.children;
@@ -59,40 +42,260 @@ class ActivitiesErrorBoundary extends Component {
 }
 
 function Activities({
-  combinedData,
+  currentMonth,
+  currentYear,
+  selectedDateRange,
+  user,
   handleToggleFeedback,
   openFeedback,
+  handlePopoverOpen,
+  handlePopoverClose,
   handleFeedbackChange,
   handleSubmitFeedback,
   loading,
   feedback,
-  getEmployeeName,
-  theme,
 }) {
+  const [filter, setFilter] = useState("all");
+  const [localFeedbacks, setLocalFeedbacks] = useState({});
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [dailyWork, setDailyWork] = useState([]);
 
-  const getStatus = (meetingDate) => {
-    if (!meetingDate || !moment(meetingDate).isValid()) {
+  // Determine the date range for fetching data
+  const dateParams = useMemo(() => {
+    if (selectedDateRange?.start && selectedDateRange?.end && moment(selectedDateRange.start).isValid() && moment(selectedDateRange.end).isValid()) {
+      return {
+        startDate: moment(selectedDateRange.start).tz('UTC').format('YYYY-MM-DD'),
+        endDate: moment(selectedDateRange.end).tz('UTC').format('YYYY-MM-DD'),
+      };
+    }
+    // Fallback to currentMonth and currentYear
+    const startOfMonth = moment([currentYear, currentMonth - 1]).tz('UTC').startOf('month').format('YYYY-MM-DD');
+    const endOfMonth = moment([currentYear, currentMonth - 1]).tz('UTC').endOf('month').format('YYYY-MM-DD');
+    return {
+      startDate: startOfMonth,
+      endDate: endOfMonth,
+    };
+  }, [selectedDateRange, currentMonth, currentYear]);
+
+  // Fetch meetings
+  const {
+    data: getMeetings,
+    isLoading: isMeetingsLoading,
+    error: meetingsError,
+  } = useGet("meetings/get", {
+    startDate: dateParams.startDate,
+    endDate: dateParams.endDate,
+  }, {}, { queryKey: ["meetings", dateParams.startDate, dateParams.endDate] });
+
+  // Fetch daily work (tasks)
+  const { data: getDailyWorkData, refetch } = useGet(
+    "/employee/daily-work/get",
+    {
+      employeeId: user?._id,
+      startDate: dateParams.startDate,
+      endDate: dateParams.endDate,
+    },
+    {},
+    { queryKey: ["dailyWork", user?._id, dateParams.startDate, dateParams.endDate] }
+  );
+
+  // Fetch events
+  const {
+    data: getEventsData,
+    isLoading: isEventsLoading,
+    error: eventsError,
+  } = useGet(
+    "/event",
+    {
+      startDate: dateParams.startDate,
+      endDate: dateParams.endDate,
+    },
+    {},
+    { queryKey: ["events", dateParams.startDate, dateParams.endDate] }
+  );
+
+  // Fetch employees
+  const { data: employees } = useGet(
+    "employee/all",
+    {},
+    {},
+    { queryKey: "employees" }
+  );
+
+  const handleGiveFeedback = usePost("/employee/daily-work/update");
+
+  // Update daily work state with multi-day task splitting
+  useEffect(() => {
+    if (getDailyWorkData?.data?.data) {
+      const tasks = Array.isArray(getDailyWorkData.data.data.data) ? getDailyWorkData.data.data.data : [];
+      console.log('Raw Daily Work Data:', tasks);
+
+      const expandedTasks = tasks.flatMap((task, index) => {
+        const startMoment = task.startDate && moment(task.startDate).isValid() ? moment(task.startDate).tz('UTC') : moment().tz('UTC');
+        const endMoment = task.endDate && moment(task.endDate).isValid() ? moment(task.endDate).tz('UTC') : startMoment.clone();
+
+        // If start and end are the same day, create a single task
+        if (startMoment.isSame(endMoment, 'day')) {
+          const taskEntry = {
+            ...task,
+            date: startMoment.toDate(),
+            originalId: task._id,
+            taskId: `${task._id}-0`,
+          };
+          console.log('Single-day Task:', taskEntry);
+          return [taskEntry];
+        }
+
+        // For multi-day tasks, create an entry for each day
+        const taskEntries = [];
+        let currentDay = startMoment.clone().startOf('day');
+        const endDay = endMoment.clone().startOf('day');
+        let dayIndex = 0;
+
+        while (currentDay.isSameOrBefore(endDay, 'day')) {
+          const taskEntry = {
+            ...task,
+            date: currentDay.toDate(),
+            originalId: task._id,
+            taskId: `${task._id}-${dayIndex}`,
+            isMultiDay: true,
+            fullDuration: `${startMoment.format('MMMM D, YYYY')} to ${endMoment.format('MMMM D, YYYY')}`,
+          };
+          console.log('Multi-day Task Entry:', taskEntry);
+          taskEntries.push(taskEntry);
+          currentDay.add(1, 'day');
+          dayIndex++;
+        }
+        return taskEntries;
+      });
+
+      // Deduplicate tasks by originalId
+      const seenIds = new Set();
+      const uniqueTasks = expandedTasks.filter((task) => {
+        if (seenIds.has(task.originalId)) {
+          console.warn('Duplicate task originalId detected:', task.originalId, task);
+          return false;
+        }
+        seenIds.add(task.originalId);
+        return true;
+      });
+
+      console.log('Processed Daily Work:', uniqueTasks);
+      setDailyWork(uniqueTasks);
+    } else {
+      setDailyWork([]);
+    }
+  }, [getDailyWorkData]);
+
+  // Update events state
+  useEffect(() => {
+    if (isEventsLoading || eventsError || !getEventsData?.data?.data) {
+      setEvents([]);
+      return;
+    }
+    if (Array.isArray(getEventsData.data.data)) {
+      const eventData = getEventsData.data.data.map((event) => ({
+        ...event,
+        eventDate: event.start,
+        meetingName: event.title,
+        meetingAgenda: event.description,
+        meetingDuration: moment(event.end).diff(moment(event.start), "minutes"),
+        type: event.type,
+        eventBy: event.createdBy || user?._id,
+        originalId: event._id,
+      }));
+      console.log('Processed Events:', eventData);
+      setEvents(eventData);
+    } else {
+      console.error("getEventsData.data is not an array:", getEventsData.data);
+      setEvents([]);
+    }
+  }, [getEventsData, isEventsLoading, eventsError, user]);
+
+  // Update meetings state
+  useEffect(() => {
+    if (isMeetingsLoading || meetingsError || !getMeetings?.data?.data) {
+      setEvents((prevEvents) =>
+        prevEvents.filter((event) => event.eventDate)
+      );
+      return;
+    }
+    if (Array.isArray(getMeetings.data.data)) {
+      const meetings = getMeetings.data.data.map((meeting) => ({
+        ...meeting,
+        meetingDate: meeting.start_time_Date,
+        meetingName: meeting.meetingName,
+        meetingAgenda: meeting.meetingDescription,
+        meetingDuration: moment(meeting.end_time_Date).diff(
+          moment(meeting.start_time_Date),
+          "minutes"
+        ),
+        meetingBy: meeting.meetingBy || user?._id,
+        originalId: meeting._id,
+      }));
+      console.log('Processed Meetings:', meetings);
+      setEvents((prevEvents) => [
+        ...prevEvents.filter((event) => event.eventDate),
+        ...meetings,
+      ]);
+    } else {
+      console.error("getMeetings.data.data is not an array:", getMeetings.data.data);
+    }
+  }, [getMeetings, isMeetingsLoading, meetingsError, user]);
+
+  const combinedData = useMemo(() => {
+    const seenIds = new Set();
+    const mergedData = [
+      ...(Array.isArray(dailyWork) ? dailyWork : []),
+      ...(Array.isArray(events) ? events : []),
+    ].filter((item) => {
+      if (seenIds.has(item.originalId)) {
+        console.warn('Duplicate item in combinedData:', item.originalId, item);
+        return false;
+      }
+      seenIds.add(item.originalId);
+      return true;
+    }).sort((a, b) => {
+      const dateA = a.date
+        ? new Date(a.date)
+        : a.meetingDate
+        ? new Date(a.meetingDate)
+        : new Date(a.eventDate);
+      const dateB = b.date
+        ? new Date(b.date)
+        : b.meetingDate
+        ? new Date(b.meetingDate)
+        : new Date(b.eventDate);
+      return dateA - dateB;
+    });
+
+    console.log('Combined Data:', mergedData);
+    return mergedData;
+  }, [dailyWork, events]);
+
+  const getStatus = (date) => {
+    if (!date || !moment(date).isValid()) {
       return "Unknown";
     }
-    const now = moment();
-    const meetingTime = moment.utc(meetingDate);
-    if (now.isAfter(meetingTime)) return "Completed";
-    if (now.isBefore(meetingTime)) return "Upcoming";
+    const now = moment().tz('UTC');
+    const eventTime = moment.utc(date);
+    if (now.isAfter(eventTime)) return "Completed";
+    if (now.isBefore(eventTime)) return "Upcoming";
     return "Ongoing";
   };
 
   const getStatusColor = (status) => {
     switch (status) {
       case "Completed":
-        return "#4caf50";
+        return "bg-green-500";
       case "Ongoing":
-        return "#ff9800";
+        return "bg-orange-500";
       case "Upcoming":
-        return "#2196f3";
+        return "bg-blue-500";
       default:
-        return "#9e9e9e";
+        return "bg-gray-500";
     }
   };
 
@@ -100,7 +303,7 @@ function Activities({
     if (!date || !moment(date).isValid()) {
       return "Invalid Date";
     }
-    return moment(date).format("ddd, MMM D • h:mm A");
+    return moment(date).tz('UTC').format("MMMM D, YYYY, h:mm A");
   };
 
   const copyToClipboard = (text) => {
@@ -113,571 +316,427 @@ function Activities({
     });
   };
 
-  const handlePopoverOpen = (event, id) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedId(id);
+  const handleSubmitFeedbackLocal = async (id) => {
+    const data = {
+      feedback,
+      id,
+      feedbackGiverName: user?.name || user?.companyName || "Anonymous",
+    };
+    try {
+      await handleGiveFeedback.mutateAsync(data);
+      refetch();
+      setLocalFeedbacks((prev) => ({
+        ...prev,
+        [id]: [
+          ...(prev[id] || []),
+          {
+            feedback,
+            feedbackGiverName: user?.name || user?.companyName || "Anonymous",
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      }));
+    } catch (error) {
+      console.error("Failed to submit feedback:", error);
+    } finally {
+      handlePopoverClose();
+    }
   };
 
-  const handlePopoverClose = () => {
+  const customHandlePopoverOpen = (event, file, id) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedId(id);
+    if (handlePopoverOpen) {
+      handlePopoverOpen(event, file, id);
+    }
+  };
+
+  const customHandlePopoverClose = () => {
     setAnchorEl(null);
     setSelectedId(null);
-    handleFeedbackChange({ target: { value: "" } }); // Reset feedback
+    if (handlePopoverClose) {
+      handlePopoverClose();
+    }
+  };
+
+  const filteredData = combinedData.filter((item) => {
+    // Filter by date range
+    const itemDate = item.date
+      ? moment(item.date).tz('UTC').format('YYYY-MM-DD')
+      : item.meetingDate
+      ? moment(item.meetingDate).tz('UTC').format('YYYY-MM-DD')
+      : moment(item.eventDate).tz('UTC').format('YYYY-MM-DD');
+    const isWithinRange = moment(itemDate).isBetween(dateParams.startDate, dateParams.endDate, 'day', '[]');
+
+    // Apply type filter
+    if (!isWithinRange) return false;
+    if (filter === "all") return true;
+    if (filter === "task") return !!item.date && !item.meetingDate && !item.eventDate;
+    if (filter === "meeting") return !!item.meetingDate;
+    if (filter === "event") return !!item.eventDate;
+    return true;
+  });
+
+  const getEmployeeName = (id) => {
+    const employee = employees?.data?.message?.[0]?.find((emp) => emp._id === id);
+    return employee ? `${employee.name}` : "Imperial Milestones";
   };
 
   const renderItem = (item, index) => {
     if (!item) return null;
-    const isDailyWork = !!item.date;
-    const isMeeting = !isDailyWork;
-    const status = isMeeting ? getStatus(item.meetingDate) : null;
-    const statusColor = isMeeting ? getStatusColor(status) : null;
+    const isDailyWork = !!item.date && !item.meetingDate && !item.eventDate;
+    const isMeeting = !!item.meetingDate;
+    const isEvent = !!item.eventDate;
+    const status = isMeeting ? getStatus(item.meetingDate) : isEvent ? getStatus(item.eventDate) : null;
+    const statusColor = isMeeting || isEvent ? getStatusColor(status) : null;
 
     return (
-      <Card
-        key={index}
-        elevation={3}
-        sx={{
-          mb: 3,
-          borderRadius: "16px",
-          background: isDailyWork
-            ? "linear-gradient(145deg, #ffffff, #f5f7fa)"
-            : "linear-gradient(145deg, #ffffff, #f0f7ff)",
-          backdropFilter: "blur(20px)",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-          border: isDailyWork
-            ? "1px solid rgba(236, 242, 248, 0.5)"
-            : "1px solid rgba(224, 240, 255, 0.6)",
-          overflow: "visible",
-          position: "relative",
-          transition: "all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)",
-          "&:hover": {
-            transform: "translateY(-4px)",
-            boxShadow: "0 15px 35px rgba(0,0,0,0.12)",
-          },
-        }}
+      <div
+        key={`${item.taskId || item._id}-${index}`}
+        className="mb-3 rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow relative"
       >
-        {isMeeting && status !== "Unknown" && (
-          <Box
-            sx={{
-              position: "absolute",
-              top: "14px",
-              right: "14px",
-              height: "10px",
-              width: "10px",
-              borderRadius: "50%",
-              backgroundColor: statusColor,
-              boxShadow: `0 0 10px ${statusColor}60`,
-            }}
-          />
+        {(isMeeting || isEvent) && status !== "Unknown" && (
+          <div className={`absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full ${statusColor}`} />
         )}
-
-        <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            mb={2.5}
-          >
-            <Box display="flex" alignItems="center" gap={1.5}>
-              <Avatar
-                sx={{
-                  bgcolor: isDailyWork
-                    ? "rgba(76, 175, 80, 0.1)"
-                    : "rgba(33, 150, 243, 0.1)",
-                  color: isDailyWork ? "#4caf50" : "#2196f3",
-                  width: 42,
-                  height: 42,
-                }}
+        <div className="p-2">
+          <div className="flex justify-between items-center mb-1.5">
+            <div className="flex items-center gap-1.5">
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                  isDailyWork
+                    ? "bg-green-100 text-green-600"
+                    : isMeeting
+                    ? "bg-blue-100 text-blue-600"
+                    : "bg-purple-100 text-purple-600"
+                }`}
               >
                 {isDailyWork ? (
-                  <Assignment sx={{ fontSize: "1.3rem" }} />
+                  <Assignment fontSize="small" />
+                ) : isMeeting ? (
+                  <MeetingRoom fontSize="small" />
                 ) : (
-                  <MeetingRoom sx={{ fontSize: "1.3rem" }} />
+                  <Event fontSize="small" />
                 )}
-              </Avatar>
-              <Box>
-                <Typography
-                  variant="h6"
-                  fontWeight="600"
-                  sx={{
-                    color: "#1d2939",
-                    fontSize: "1rem",
-                    lineHeight: 1.3,
-                  }}
-                >
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-800">
                   {isDailyWork
                     ? item.description || "No Description"
-                    : item.meetingName || "Unnamed Meeting"}
-                </Typography>
-                {isDailyWork ? (
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: "#667085",
-                      fontSize: "0.75rem",
-                      mt: 0.5,
-                    }}
-                  >
-                    {formatDate(item.date)}
-                  </Typography>
-                ) : (
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: "#667085",
-                      fontSize: "0.75rem",
-                      mt: 0.5,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 0.5,
-                    }}
-                  >
-                    <Timelapse sx={{ fontSize: "0.75rem" }} />
-                    {item.meetingDuration
-                      ? `${item.meetingDuration} min`
-                      : "Duration Unknown"}
-                  </Typography>
+                    : isMeeting
+                    ? item.meetingName || "Unnamed Meeting"
+                    : item.title || "Unnamed Event"}
+                  {(isDailyWork || isMeeting || isEvent) && (
+                    <span className="inline-flex items-center gap-1 ml-1 text-xs">
+                      <PersonIcon className="text-indigo-500 text-[10px]" />
+                      {getEmployeeName(
+                        isDailyWork
+                          ? item.assignFor?._id
+                          : item.meetingBy || item.eventBy
+                      ) || "Unknown"}
+                    </span>
+                  )}
+                </h3>
+                <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-1">
+                  <CalendarTodayIcon className="text-[10px]" />
+                  {isDailyWork
+                    ? item.isMultiDay
+                      ? `Day of ${item.fullDuration}`
+                      : formatDate(item.date)
+                    : isMeeting
+                    ? `${formatDate(item.meetingDate)} - ${moment(item.meetingDate).tz('UTC').add(item.meetingDuration, "minutes").format("h:mm A")}`
+                    : `${formatDate(item.eventDate)} - ${moment(item.eventDate).tz('UTC').add(item.meetingDuration, "minutes").format("h:mm A")}`}
+                </p>
+                {(isMeeting || isEvent) && (
+                  <div className="flex items-center gap-1 text-gray-500 text-xs mt-0.5">
+                    <Timelapse className="text-[10px]" />
+                    <span>
+                      {item.meetingDuration
+                        ? `${item.meetingDuration} min`
+                        : "Duration Unknown"}
+                    </span>
+                  </div>
                 )}
-              </Box>
-            </Box>
+                {isEvent && (
+                  <p className="text-gray-500 text-xs mt-0.5">
+                    Type: {item.type || "N/A"}
+                  </p>
+                )}
+              </div>
+            </div>
             {isDailyWork ? (
-              <IconButton
-                onClick={() => handleToggleFeedback(item._id)}
-                sx={{
-                  bgcolor: "rgba(240, 242, 245, 0.8)",
-                  width: 36,
-                  height: 36,
-                  "&:hover": {
-                    bgcolor: "rgba(235, 238, 242, 1)",
-                  },
-                }}
+              <button
+                onClick={() => handleToggleFeedback(item.taskId)}
+                className="bg-gray-100 w-6 h-6 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
               >
-                {openFeedback === item._id ? <ExpandLess /> : <ExpandMore />}
-              </IconButton>
+                {openFeedback === item.taskId ? (
+                  <ExpandLess fontSize="small" />
+                ) : (
+                  <ExpandMore fontSize="small" />
+                )}
+              </button>
             ) : (
-              <Chip
-                label={status}
-                size="small"
-                sx={{
-                  fontWeight: "500",
-                  color: statusColor,
-                  bgcolor: `${statusColor}15`,
-                  borderRadius: "8px",
-                  height: "26px",
-                  fontSize: "0.7rem",
-                  "& .MuiChip-label": {
-                    px: 1.2,
-                  },
-                }}
-              />
+              <span
+                className={`text-white ${statusColor} px-1.5 py-0.5 rounded-full text-xs font-medium`}
+              >
+                {status}
+              </span>
             )}
-          </Box>
-
+          </div>
           {isDailyWork && (
             <>
-              <Box display="flex" alignItems="center" gap={2} mb={2} mt={3}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    flex: 1,
-                    p: 1.5,
-                    borderRadius: "12px",
-                    bgcolor: "rgba(245, 247, 250, 0.7)",
-                    display: "flex",
-                    alignItems: "center",
-                    border: "1px solid rgba(230, 235, 240, 0.8)",
-                  }}
-                >
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="flex-1 p-1.5 border border-gray-200 rounded-lg bg-gray-50">
                   {item.file && item.fileType ? (
-                    <GetFileThumbnail
-                      fileType={item.fileType}
-                      fileUrl={item.file}
-                    />
+                    <GetFileThumbnail fileType={item.fileType} fileUrl={item.file} />
                   ) : (
-                    <Typography variant="body2" sx={{ ml: 1.5, color: "#667085" }}>
-                      No File
-                    </Typography>
+                    <span className="text-gray-500 text-xs ml-1">No File</span>
                   )}
                   {item.file && (
-                    <a href={item.file} target="_blank" rel="noopener noreferrer">
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          ml: 1.5,
-                          color: "blue",
-                          cursor: "pointer",
-                          flex: 1,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {item.fileType || "Document"}
-                      </Typography>
+                    <a
+                      href={item.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 text-xs ml-1 hover:underline"
+                    >
+                      {item.fileType || "Document"}
                     </a>
                   )}
-                </Paper>
-                <Tooltip title="Add Feedback">
-                  <IconButton
-                    color="primary"
-                    onClick={(e) => handlePopoverOpen(e, item._id)}
-                    sx={{
-                      bgcolor: "rgba(33, 150, 243, 0.08)",
-                      width: 42,
-                      height: 42,
-                      "&:hover": {
-                        bgcolor: "rgba(33, 150, 243, 0.15)",
-                      },
-                    }}
+                </div>
+                <div className="group relative">
+                  <button
+                    onClick={(e) => customHandlePopoverOpen(e, item.file, item.taskId)}
+                    className="bg-blue-100 w-6 h-6 rounded-full flex items-center justify-center hover:bg-blue-200 transition-colors"
                   >
-                    <Feedback sx={{ fontSize: "1.2rem" }} />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-              <Collapse in={openFeedback === item._id} sx={{ mt: 1 }}>
-                <Box
-                  sx={{
-                    bgcolor: "rgba(245, 247, 250, 0.7)",
-                    borderRadius: "12px",
-                    p: 2,
-                    border: "1px solid rgba(230, 235, 240, 0.8)",
-                  }}
-                >
-                  <Typography
-                    variant="subtitle2"
-                    fontWeight="600"
-                    mb={1.5}
-                    color="#344054"
-                  >
-                    Feedback
-                  </Typography>
-                  {item?.feedBack?.length > 0 ? (
-                    item.feedBack.map((fb, idx) => (
-                      <Box
-                        key={idx}
-                        sx={{
-                          p: 1.5,
-                          bgcolor: "rgba(255, 255, 255, 0.8)",
-                          borderRadius: "10px",
-                          mb: 1.5,
-                          border: "1px solid rgba(235, 238, 242, 1)",
-                        }}
-                      >
-                        <Typography
-                          variant="body2"
-                          sx={{ color: "#344054", mb: 0.5 }}
+                    <Feedback fontSize="small" />
+                  </button>
+                  <span className="absolute hidden group-hover:block bg-gray-800 text-white text-[10px] rounded-md px-1 py-0.5 -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                    Add Feedback
+                  </span>
+                </div>
+              </div>
+              <div className={`${openFeedback === item.taskId ? "block" : "hidden"}`}>
+                <div className="bg-gray-50 p-2 border border-gray-200 rounded-lg">
+                  <h4 className="text-xs font-semibold text-gray-800 mb-1.5">Feedback</h4>
+                  {(item?.feedBack?.length > 0 || localFeedbacks[item.taskId]?.length > 0) ? (
+                    [...(item.feedBack || []), ...(localFeedbacks[item.taskId] || [])].map(
+                      (fb, idx) => (
+                        <div
+                          key={idx}
+                          className="p-1.5 bg-white mb-1 border border-gray-200 rounded-lg shadow-sm"
                         >
-                          {fb.feedback || "No feedback text"}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: "#667085",
-                            fontStyle: "italic",
-                            display: "block",
-                            textAlign: "right",
-                          }}
-                        >
-                          {fb.feedbackGiverName || "Imperial Milestones"}
-                        </Typography>
-                      </Box>
-                    ))
+                          <p className="text-xs text-gray-700">
+                            {fb.feedback || "No feedback text"}
+                          </p>
+                          <p className="text-gray-500 text-[10px] text-right mt-0.5">
+                            {fb.feedbackGiverName || "Imperial Milestones"} •{" "}
+                            {moment(fb.timestamp).tz('UTC').format("MMM D, YYYY")}
+                          </p>
+                        </div>
+                      )
+                    )
                   ) : (
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: "#667085",
-                        fontStyle: "italic",
-                        textAlign: "center",
-                        py: 1,
-                      }}
-                    >
-                      No feedback yet
-                    </Typography>
+                    <p className="text-gray-500 text-xs text-center">No feedback yet</p>
                   )}
-                </Box>
-              </Collapse>
+                </div>
+              </div>
             </>
           )}
-
-          {isMeeting && (
-            <Box sx={{ mt: 2.5 }}>
-              <Box
-                display="flex"
-                alignItems="center"
-                gap={1.5}
-                sx={{ mb: 2 }}
-              >
-                <Avatar
-                  sx={{
-                    bgcolor: "rgba(76, 175, 80, 0.1)",
-                    color: "#4caf50",
-                    width: 32,
-                    height: 32,
-                  }}
-                >
-                  <PersonPin sx={{ fontSize: "1rem" }} />
-                </Avatar>
-                <Typography variant="body2" sx={{ color: "#475467" }}>
+          {(isMeeting || isEvent) && (
+            <div className="mt-1.5">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                  <PersonPin fontSize="small" />
+                </div>
+                <p className="text-xs text-gray-700">
                   Organized by{" "}
-                  <span style={{ fontWeight: 600, color: "#344054" }}>
-                    {getEmployeeName(item.meetingBy) || "Unknown Organizer"}
+                  <span className="font-semibold">
+                    {getEmployeeName(item.meetingBy || item.eventBy) || "Unknown Organizer"}
                   </span>
-                </Typography>
-              </Box>
-
-              <Box sx={{ pl: 0.5, mb: 3 }}>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "#344054",
-                    lineHeight: 1.6,
-                    fontWeight: 500,
-                    mb: 0.5,
-                  }}
-                >
-                  Agenda
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "#475467",
-                    bgcolor: "rgba(245, 247, 250, 0.7)",
-                    p: 1.5,
-                    borderRadius: "8px",
-                    border: "1px solid rgba(230, 235, 240, 0.8)",
-                  }}
-                >
-                  {item.meetingAgenda || "No agenda provided"}
-                </Typography>
-              </Box>
-
-              <Divider sx={{ mb: 3, opacity: 0.6 }} />
-
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Tooltip title="Copy meeting link">
-                  <MuiButton
-                    size="small"
-                    startIcon={<FileCopy fontSize="small" />}
-                    onClick={() => copyToClipboard(item.meetingLink)}
-                    sx={{
-                      color: "#475467",
-                      fontSize: "0.75rem",
-                      "&:hover": {
-                        bgcolor: "rgba(0,0,0,0.03)",
-                        color: "#1d2939",
-                      },
-                    }}
-                    disabled={!item.meetingLink}
-                  >
-                    Copy Link
-                  </MuiButton>
-                </Tooltip>
-
-                <MuiButton
-                  variant="contained"
-                  size="medium"
-                  startIcon={<VideoCall />}
-                  href={item.meetingLink || "#"}
-                  target="_blank"
-                  sx={{
-                    bgcolor: "#2196f3",
-                    "&:hover": { bgcolor: "#1976d2" },
-                    borderRadius: "10px",
-                    boxShadow: "0 4px 12px rgba(33, 150, 243, 0.25)",
-                    textTransform: "none",
-                    fontWeight: 600,
-                    px: 2.5,
-                    opacity: item.meetingLink ? 1 : 0.5,
-                    pointerEvents: item.meetingLink ? "auto" : "none",
-                  }}
-                >
-                  Join Meeting
-                </MuiButton>
-              </Box>
-            </Box>
+                </p>
+              </div>
+              <div className="mb-1.5">
+                <p className="text-xs font-semibold text-gray-800">
+                  {isMeeting ? "Agenda" : "Description"}
+                </p>
+                <p className="bg-gray-50 p-1.5 border border-gray-200 rounded-lg text-xs text-gray-700">
+                  {item.meetingAgenda || item.description || "No description provided"}
+                </p>
+              </div>
+              {isMeeting && (
+                <>
+                  <p className="text-gray-500 text-xs mt-0.5">
+                    Access:{" "}
+                    {item.registrants?.length > 0
+                      ? item.registrants
+                          .map((id) => getEmployeeName(id) || "Unknown")
+                          .join(", ")
+                      : "None"}
+                  </p>
+                  <hr className="mb-1.5 border-gray-200" />
+                  <div className="flex justify-between items-center">
+                    <button
+                      onClick={() => copyToClipboard(item.meetingLink)}
+                      className={`text-gray-600 text-xs flex items-center gap-1 hover:text-gray-800 transition-colors ${
+                        !item.meetingLink ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
+                      disabled={!item.meetingLink}
+                    >
+                      <FileCopy className="text-[10px]" />
+                      Copy Link
+                    </button>
+                    <a
+                      href={item.meetingLink || "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`bg-blue-600 text-white px-2 py-0.5 rounded-lg text-xs flex items-center gap-1 hover:bg-blue-700 transition-colors ${
+                        !item.meetingLink ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
+                    >
+                      <VideoCall fontSize="small" />
+                      Join Meeting
+                    </a>
+                  </div>
+                </>
+              )}
+              {isEvent && (
+                <p className="text-gray-500 text-xs mt-0.5">
+                  Type: {item.type || "N/A"}
+                </p>
+              )}
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   };
 
-  const id = Boolean(anchorEl) ? "feedback-popover" : undefined;
-
   return (
     <ActivitiesErrorBoundary>
-      <Paper
-        elevation={0}
-        sx={{
-          bgcolor: "rgba(255,255,255,0.2)",
-          borderRadius: "20px",
-          boxShadow: "0 12px 40px rgba(0,0,0,0.06)",
-          p: { xs: 2, md: 3 },
-          height: "88vh",
-          overflow: "auto",
-          backdropFilter: "blur(20px)",
-          border: "1px solid rgba(240, 245, 250, 0.8)",
-          "&::-webkit-scrollbar": {
-            width: "8px",
-          },
-          "&::-webkit-scrollbar-track": {
-            background: "rgba(0,0,0,0.02)",
-            borderRadius: "10px",
-          },
-          "&::-webkit-scrollbar-thumb": {
-            background: "rgba(0,0,0,0.09)",
-            borderRadius: "10px",
-            "&:hover": {
-              background: "rgba(0,0,0,0.12)",
-            },
-          },
-        }}
-      >
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-            mb: 3.5,
-            pb: 2,
-            borderBottom: "1px solid rgba(0,0,0,0.06)",
-          }}
-        >
-          <Avatar
-            sx={{
-              bgcolor: "rgba(33, 150, 243, 0.1)",
-              color: "#2196f3",
-              width: 40,
-              height: 40,
-            }}
-          >
-            <EventNote />
-          </Avatar>
-          <Typography
-            variant="h5"
-            sx={{
-              fontWeight: 600,
-              color: theme?.palette?.text?.primary || "#000",
-            }}
-          >
-            Activities
-          </Typography>
-        </Box>
-
-        {Array.isArray(combinedData) && combinedData.length > 0 ? (
-          combinedData.map((item, index) => renderItem(item, index))
-        ) : (
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              py: 8,
-              opacity: 0.7,
-            }}
-          >
-            <EventNote sx={{ fontSize: 48, color: "#94a3b8", mb: 2 }} />
-            <Typography
-              sx={{
-                textAlign: "center",
-                color: "#64748b",
-                fontWeight: 500,
-              }}
+      <div className="p-4 h-[88vh] overflow-auto border border-gray-200 rounded-xl bg-gray-50">
+        {(isMeetingsLoading || isEventsLoading) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50 z-50">
+            <svg
+              className="animate-spin h-8 w-8 text-indigo-500"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
             >
-              No activities scheduled yet
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                textAlign: "center",
-                color: "#94a3b8",
-                maxWidth: "80%",
-                mt: 1,
-              }}
-            >
-              Your scheduled meetings and daily tasks will appear here
-            </Typography>
-          </Box>
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+          </div>
         )}
-
-        <Popover
-          id={id}
-          open={Boolean(anchorEl)}
-          anchorEl={anchorEl}
-          onClose={handlePopoverClose}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-          transformOrigin={{ vertical: "top", horizontal: "right" }}
-          PaperProps={{
-            sx: {
-              borderRadius: "16px",
-              boxShadow: "0 12px 40px rgba(0,0,0,0.15)",
-              backdropFilter: "blur(20px)",
-              bgcolor: "rgba(255,255,255,0.98)",
-              border: "1px solid rgba(240, 245, 250, 0.9)",
-              overflow: "hidden",
-            },
+        {(meetingsError || eventsError) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50 z-50">
+            <p className="text-red-600 font-semibold">
+              Error loading data. Please try again.
+            </p>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-2 mb-4 border-b border-gray-200 pb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+              <EventNote fontSize="small" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-800">Activities</h2>
+          </div>
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="border border-gray-300 rounded-lg p-1.5 text-xs text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+          >
+            <option value="all">All</option>
+            <option value="task">Task</option>
+            <option value="event">Event</option>
+            <option value="meeting">Meeting</option>
+          </select>
+        </div>
+        <div className="mb-4">
+          <p className="text-gray-600 text-sm">
+            Showing activities for:{' '}
+            {dateParams.startDate === dateParams.endDate
+              ? moment(dateParams.startDate).tz('UTC').format('MMMM D, YYYY')
+              : `${moment(dateParams.startDate).tz('UTC').format('MMM D, YYYY')} - ${moment(dateParams.endDate).tz('UTC').format('MMM D, YYYY')}`}
+          </p>
+        </div>
+        {Array.isArray(filteredData) && filteredData.length > 0 ? (
+          filteredData.map((item, index) => renderItem(item, index))
+        ) : (
+          <div className="text-center p-10">
+            <EventNote className="text-gray-400 text-4xl mb-3" />
+            <p className="text-gray-600 text-base">No activities scheduled yet</p>
+            <p className="text-gray-500 text-xs mt-1.5">
+              Your scheduled meetings, events, and daily tasks will appear here
+            </p>
+          </div>
+        )}
+        <div
+          className={`absolute ${anchorEl ? "block" : "hidden"} bg-white border border-gray-200 rounded-xl p-3 w-72 z-50 shadow-lg`}
+          style={{
+            top: anchorEl ? anchorEl.getBoundingClientRect().bottom + 8 : 0,
+            right: 12,
           }}
         >
-          <Box sx={{ p: 3, width: { xs: 280, sm: 350 } }}>
-            <Typography
-              variant="h6"
-              fontWeight={600}
-              color="#1d2939"
-              mb={2.5}
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-sm font-semibold text-gray-800">Add Feedback</h3>
+            <button
+              onClick={customHandlePopoverClose}
+              className="text-gray-500 hover:text-gray-700"
             >
-              Add Feedback
-            </Typography>
-            <TextField
-              value={feedback || ""}
-              onChange={handleFeedbackChange}
-              fullWidth
-              multiline
-              rows={4}
-              placeholder="Share your thoughts on this work..."
-              variant="outlined"
-              sx={{
-                mb: 3,
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "12px",
-                  backgroundColor: "rgba(245, 247, 250, 0.7)",
-                  "& fieldset": {
-                    borderColor: "rgba(230, 235, 240, 0.8)",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "rgba(210, 215, 220, 0.9)",
-                  },
-                  "&.Mui-focused fieldset": {
-                    borderColor: theme?.palette?.primary?.main || "#1976d2",
-                  },
-                },
-              }}
-            />
-            <MuiButton
-              onClick={() => handleSubmitFeedback(selectedId)}
-              variant="contained"
-              fullWidth
-              disabled={loading || !feedback?.trim()}
-              sx={{
-                borderRadius: "12px",
-                py: 1.2,
-                bgcolor: theme?.palette?.primary?.main || "#2196f3",
-                "&:hover": { bgcolor: theme?.palette?.primary?.dark || "#1976d2" },
-                textTransform: "none",
-                fontWeight: 600,
-                boxShadow: "0 4px 12px rgba(33, 150, 243, 0.25)",
-              }}
-            >
-              {loading ? <CircularProgress size={24} /> : "Submit Feedback"}
-            </MuiButton>
-          </Box>
-        </Popover>
-      </Paper>
+              <Close fontSize="small" />
+            </button>
+          </div>
+          <textarea
+            value={feedback || ""}
+            onChange={handleFeedbackChange}
+            className="w-full h-20 p-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none mb-2 resize-none"
+            placeholder="Share your thoughts on this work..."
+          />
+          <button
+            onClick={() => handleSubmitFeedbackLocal(selectedId)}
+            className={`w-full bg-blue-600 text-white py-1.5 rounded-lg text-xs hover:bg-blue-700 transition-colors ${
+              loading || !feedback?.trim() ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            disabled={loading || !feedback?.trim()}
+          >
+            {loading ? (
+              <svg
+                className="animate-spin h-4 w-4 text-white mx-auto"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+            ) : (
+              "Submit Feedback"
+            )}
+          </button>
+        </div>
+      </div>
     </ActivitiesErrorBoundary>
   );
 }

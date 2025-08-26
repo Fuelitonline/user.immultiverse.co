@@ -24,7 +24,6 @@ const decryptData = (encryptedData) => {
     const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
 
     if (!decryptedString) throw new Error("Failed to decrypt data");
-
     return JSON.parse(decryptedString);
   } catch (error) {
     console.error("Decryption error:", error);
@@ -84,24 +83,20 @@ export const AuthProvider = ({ children }) => {
         console.error("Error processing API user data:", error);
       }
     }
-  }, [users, user, apiLoading, apiError, token]); // token added
+  }, [users, user, apiLoading, apiError, token]);
 
-  // Login function with clearing old data
+  // Login function
   const login = (userData, authToken) => {
     try {
       console.log("Logging in new user...");
-
-      // Clear previous user and token
       localStorage.removeItem("user");
       localStorage.removeItem("authToken");
 
-      // Save new token
       if (authToken) {
         localStorage.setItem("authToken", authToken);
         setToken(authToken);
       }
 
-      // Save new user data
       const expiry = Date.now() + 12 * 3600000; // 12 hours
       const dataToEncrypt = { data: userData, expiry };
       const encrypted = encryptData(dataToEncrypt);
@@ -115,12 +110,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout function: clear everything
+  // Logout function with single-line role-based redirect
   const logout = () => {
     console.log("Logging out user...");
+    const role = user?.role; // store role before clearing
     localStorage.clear();
     setUser(null);
     setToken(null);
+
+    // Single-line role-based redirect
+    window.location.href =
+      role === "superAdmin"
+        ? "https://auth.immultiverse.co/login?user=user&redirect=admin.immultiverse.co"
+        : "https://auth.immultiverse.co/login?user=employee&redirect=user.immultiverse.co";
   };
 
   // Global 401 handler
@@ -131,14 +133,12 @@ export const AuthProvider = ({ children }) => {
         if (err.response?.status === 401) {
           console.log("401 error detected, logging out...");
           logout();
-          window.location.href =
-            "https://auth.immultiverse.co/login?user=employee&redirect=user.immultiverse.co";
         }
         return Promise.reject(err);
       }
     );
     return () => axios.interceptors.response.eject(interceptor);
-  }, []);
+  }, [user]);
 
   // Debug: track user state
   useEffect(() => {

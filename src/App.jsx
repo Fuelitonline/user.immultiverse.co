@@ -33,6 +33,7 @@ import MainCalender from './pages/Maincalender/MainCalender.jsx';
 import DocumentsPage from './pages/Documents/Documents.jsx';
 import ChangePassword from './pages/Change Password/Password.jsx';
 import Attendance from './pages/MainAttendance/Attendence.jsx';
+import EmployeeReimbursement from './pages/reimbursement/Reimbursement.jsx';
 
 const Nav = () => {
   const location = useLocation();
@@ -123,6 +124,7 @@ const App = () => {
          {(isAuth?.error?.message ===  "Invalid or expired token." || isAuth?.error?.message ===  'Authentication  is required.' ) && (location.pathname !== '/login' && location.pathname !== '/register') ? <TokenExpire/> : null}
           <Nav />
           <Routes>
+            
             <Route path="/" element={<PrivateRoute>< DashboardPage/></PrivateRoute>} />
             <Route path="/Document" element={<PrivateRoute>< DocumentsPage/></PrivateRoute>} />
             <Route path="/profile" element= {<PrivateRoute><ProfilePage/></PrivateRoute> } />
@@ -132,6 +134,7 @@ const App = () => {
             <Route path="/calendar" element={<PrivateRoute><MainCalender /></PrivateRoute>} />
             <Route path="/register" element={<RagisterUser />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path='/reimbursement' element={<EmployeeReimbursement/>}/>
             <Route path="/profilechange-password" element={< ChangePassword/> }/>
             <Route path="/employees/Attendance" element={< EmployeeTable/>}/>
             <Route path="/employees/Departments" element={<Departments />}/>
