@@ -29,7 +29,7 @@ import LeavePage from './pages/MainLeave/LeavePage.jsx';
 import PayrollPage from './pages/MainPayroll/PayrollPage.jsx';
 import ProfilePage from './pages/MainProfile/Profile.jsx';
 import { Calendar } from 'react-big-calendar';
-import MainCalender from './pages/Maincalender/MainCalender.jsx';
+import MainCalender from './pages/calender/MainCalender.jsx';
 import DocumentsPage from './pages/Documents/Documents.jsx';
 import ChangePassword from './pages/Change Password/Password.jsx';
 import Attendance from './pages/MainAttendance/Attendence.jsx';

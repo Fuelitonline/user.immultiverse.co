@@ -2,9 +2,18 @@ import React, { useRef, useCallback, useState } from "react";
 import { useDrop } from "react-dnd";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import CloseIcon from "@mui/icons-material/Close";
-import GetFileThumbnail from "../Profile/getFileThumnail";
+import GetFileThumbnail from "./getFileThumnail";
 import { usePost, useGet } from "../../hooks/useApi";
 import moment from 'moment-timezone';
+import {
+  Box,
+  Typography,
+  TextareaAutosize,
+  Button,
+  CircularProgress,
+  Autocomplete,
+  TextField,
+} from "@mui/material";
 
 function TaskTab({ description, setDescription, file, setFile, setErrorMessage, selectedDate, selectedDateRange, onTaskAdded }) {
   const fileInputRef = useRef(null);
@@ -34,8 +43,12 @@ function TaskTab({ description, setDescription, file, setFile, setErrorMessage, 
     { queryKey: ["employees"] }
   );
 
-  // Extract the employee array from the nested structure
-  const employees = employeesData?.data?.message?.[0] || [];
+  // Extract and sort the employee array
+  const employees = (employeesData?.data?.message?.[0] || []).sort((a, b) => a.name.localeCompare(b.name));
+
+  // Log for debugging
+  console.log('TaskTab - Props:', { description, file, selectedDate, selectedDateRange, assignFor });
+  console.log('TaskTab - Employees:', { employees, employeesLoading, employeesError });
 
   // Function to generate an array of dates in the selected range
   const getDatesInRange = useCallback((start, end) => {
@@ -84,8 +97,9 @@ function TaskTab({ description, setDescription, file, setFile, setErrorMessage, 
   const handleFileSelect = useCallback(
     (e) => {
       if (e.target.files[0]) setFile(e.target.files[0]);
+      else setErrorMessage("No file selected");
     },
-    [setFile]
+    [setFile, setErrorMessage]
   );
 
   const triggerFileInput = useCallback(() => fileInputRef.current.click(), []);
@@ -105,12 +119,8 @@ function TaskTab({ description, setDescription, file, setFile, setErrorMessage, 
     collect: (monitor) => ({ isOver: monitor.isOver() }),
   });
 
-  const handleCheckboxChange = useCallback((employeeId) => {
-    setAssignFor((prev) =>
-      prev.includes(employeeId)
-        ? prev.filter((id) => id !== employeeId)
-        : [...prev, employeeId]
-    );
+  const handleAssignChange = useCallback((event, newValue) => {
+    setAssignFor(newValue.map(employee => employee._id));
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -138,15 +148,14 @@ function TaskTab({ description, setDescription, file, setFile, setErrorMessage, 
       setErrorMessage("");
       // Create a task for each date in the range
       for (const date of taskDates) {
-        const startDate = moment(date).tz('UTC').format('YYYY-MM-DD');
-        const endDate = moment(taskDates.length === 1 ? date : selectedDateRange?.end || date).tz('UTC').format('YYYY-MM-DD');
+        const startDateFormatted = moment(date).tz('UTC').format('YYYY-MM-DD');
+        const endDateFormatted = moment(taskDates.length === 1 ? date : selectedDateRange?.end || date).tz('UTC').format('YYYY-MM-DD');
 
         const formData = new FormData();
         formData.append("description", description);
-        formData.append("startDate", startDate);
-        formData.append("endDate", endDate);
+        formData.append("startDate", startDateFormatted);
+        formData.append("endDate", endDateFormatted);
         formData.append("file", file);
-        // Append each employee ID separately
         assignFor.forEach((employeeId) => {
           formData.append("assignFor", employeeId);
         });
@@ -190,163 +199,211 @@ function TaskTab({ description, setDescription, file, setFile, setErrorMessage, 
   ]);
 
   return (
-    <>
-      <div>
-        <label className="text-gray-500 font-medium text-sm block mb-1">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 1 }}>
+      {/* Task Description */}
+      <Box>
+        <Typography variant="caption" color="text.secondary" fontWeight="medium" mb={1}>
           Task Description
-        </label>
-        <textarea
+        </Typography>
+        <TextareaAutosize
           className="w-full p-2 border border-gray-200 rounded-lg bg-white shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
           placeholder="What did you work on today?"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          rows="3"
+          rows={3}
+          style={{
+            width: '100%',
+            padding: '8px',
+            borderRadius: '4px',
+            border: '1px solid #e5e7eb',
+            backgroundColor: '#fff',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+            fontSize: '12px',
+            outline: 'none',
+          }}
         />
-      </div>
-      <div>
-        <label className="text-gray-500 font-medium text-sm block mb-1">
+      </Box>
+
+      {/* Date Range */}
+      <Box>
+        <Typography variant="caption" color="text.secondary" fontWeight="medium" mb={1}>
           Date Range
-        </label>
-        <div className="text-gray-600 text-sm mb-2">
+        </Typography>
+        <Typography variant="body2" color="text.secondary" mb={2}>
           {taskDates.length > 0 && startDate && endDate ? (
             taskDates.length === 1 ? (
-              <span>
-                {moment(startDate).tz('Asia/Kolkata').format('MMMM D, YYYY')}
-              </span>
+              moment(startDate).tz('Asia/Kolkata').format('MMMM D, YYYY')
             ) : (
-              <span>
-                {moment(startDate).tz('Asia/Kolkata').format('MMM D, YYYY')} -{' '}
-                {moment(endDate).tz('Asia/Kolkata').format('MMM D, YYYY')}
-              </span>
+              `${moment(startDate).tz('Asia/Kolkata').format('MMM D, YYYY')} - ${moment(endDate).tz('Asia/Kolkata').format('MMM D, YYYY')}`
             )
           ) : (
-            <span className="text-red-500">No valid date selected</span>
+            <Typography color="error" variant="body2">
+              No valid date selected
+            </Typography>
           )}
-        </div>
-      </div>
-      <div className="relative">
-        <label className="text-gray-500 font-medium text-sm block mb-1">
+        </Typography>
+      </Box>
+
+      {/* Assign To */}
+      <Box>
+        <Typography variant="caption" color="text.secondary" fontWeight="medium" mb={1}>
           Assign To
-        </label>
+        </Typography>
         {employeesLoading ? (
-          <div className="text-gray-500 text-sm">Loading employees...</div>
+          <Typography variant="body2" color="text.secondary">
+            Loading employees...
+          </Typography>
         ) : employeesError ? (
-          <div className="text-red-500 text-sm">Error loading employees: {employeesError.message}</div>
+          <Typography variant="body2" color="error">
+            Error loading employees: {employeesError.message}
+          </Typography>
         ) : employees.length > 0 ? (
-          <div
-            className="w-full border border-gray-200 rounded-lg bg-white shadow-sm p-2"
-            style={{
-              maxHeight: "90px",
-              overflowY: "auto",
+          <Autocomplete
+            multiple
+            options={employees}
+            getOptionLabel={(option) => `${option.name} - ${option.position}`}
+            value={employees.filter(employee => assignFor.includes(employee._id))}
+            onChange={handleAssignChange}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                size="small"
+                placeholder="Search employees"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {employeesLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                bgcolor: '#fff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '4px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                maxHeight: '90px',
+                overflowY: 'auto',
+                fontSize: '12px',
+                '&:hover': {
+                  borderColor: '#6366f1',
+                },
+                '&.Mui-focused': {
+                  borderColor: '#6366f1',
+                  boxShadow: '0 0 0 1px #6366f1',
+                },
+              },
             }}
-          >
-            {employees
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((employee) => (
-                <label
-                  key={employee._id}
-                  className="flex items-center p-2 hover:bg-indigo-50 cursor-pointer text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={assignFor.includes(employee._id)}
-                    onChange={() => handleCheckboxChange(employee._id)}
-                    className="mr-2 h-4 w-4 text-indigo-500 focus:ring-indigo-500 border-gray-300 rounded"
-                  />
-                  {employee.name} - {employee.position}
-                </label>
-              ))}
-          </div>
+          />
         ) : (
-          <div className="text-gray-500 text-sm">No employees available</div>
+          <Typography variant="body2" color="text.secondary">
+            No employees available
+          </Typography>
         )}
-      </div>
-      <div
+      </Box>
+
+      {/* File Upload */}
+      <Box
+        ref={drop}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        ref={drop}
-        className={`border-2 border-dashed ${
-          dragActive || isOver ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-gray-50"
-        } rounded-xl p-4 text-center transition-all duration-200 hover:border-indigo-500 hover:bg-indigo-50`}
+        sx={{
+          border: '2px dashed',
+          borderColor: dragActive || isOver ? '#6366f1' : '#e5e7eb',
+          bgcolor: dragActive || isOver ? '#eef2ff' : '#f9fafb',
+          borderRadius: '12px',
+          p: 4,
+          textAlign: 'center',
+          transition: 'all 0.2s',
+          '&:hover': {
+            borderColor: '#6366f1',
+            bgcolor: '#eef2ff',
+          },
+        }}
       >
         {!file ? (
-          <div className="flex flex-col items-center gap-4">
-            <AttachFileIcon className="text-indigo-500 text-4xl" />
-            <span className="text-gray-600 font-medium text-sm">
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <AttachFileIcon sx={{ color: '#6366f1', fontSize: 32 }} />
+            <Typography variant="body2" color="text.secondary" fontWeight="medium">
               Drag & drop a file here, or
-            </span>
-            <button
-              className="text-indigo-500 border border-indigo-500 rounded-lg px-4 py-2 font-semibold text-sm hover:bg-indigo-50 hover:border-indigo-600"
+            </Typography>
+            <Button
+              variant="outlined"
+              color="primary"
               onClick={triggerFileInput}
+              sx={{
+                textTransform: 'none',
+                fontSize: '12px',
+                fontWeight: '600',
+                borderColor: '#6366f1',
+                color: '#6366f1',
+                borderRadius: '8px',
+                px: 4,
+                py: 1,
+                '&:hover': {
+                  bgcolor: '#eef2ff',
+                  borderColor: '#4f46e5',
+                },
+              }}
             >
               Browse Files
-            </button>
+            </Button>
             <input
               ref={fileInputRef}
               type="file"
               hidden
               onChange={handleFileSelect}
             />
-            <span className="text-gray-400 text-xs">
+            <Typography variant="caption" color="text.secondary">
               Supported file types: images, PDFs, documents, videos
-            </span>
-          </div>
+            </Typography>
+          </Box>
         ) : (
-          <div className="mt-2 flex items-center justify-between bg-white p-3 rounded-lg shadow-sm">
-            <div className="flex items-center gap-3">
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#fff', p: 2, borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <GetFileThumbnail fileType={file.type} fileUrl={URL.createObjectURL(file)} />
-              <div>
-                <span className="text-gray-800 font-medium text-sm">{file.name}</span>
-                <p className="text-gray-500 text-xs">{getFileSizeText(file)}</p>
-              </div>
-            </div>
-            <button
+              <Box>
+                <Typography variant="body2" color="text.primary" fontWeight="medium">
+                  {file.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {getFileSizeText(file)}
+                </Typography>
+              </Box>
+            </Box>
+            <Button
               onClick={() => setFile(null)}
-              className="text-gray-500 hover:text-gray-700"
+              sx={{ minWidth: 0, p: 0, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}
             >
-              <CloseIcon className="text-sm" />
-            </button>
-          </div>
+              <CloseIcon sx={{ fontSize: 16 }} />
+            </Button>
+          </Box>
         )}
-      </div>
-      <button
+      </Box>
+
+      {/* Submit Button */}
+      <Button
         id="task-submit"
         onClick={handleSubmit}
-        className={`hidden ${
-          taskMutation.isLoading || !file || !description.trim() || assignFor.length === 0 || taskDates.length === 0
-            ? "opacity-50 cursor-not-allowed"
-            : ""
-        }`}
         disabled={taskMutation.isLoading || !file || !description.trim() || assignFor.length === 0 || taskDates.length === 0}
+        sx={{
+          display: 'none',
+        }}
       >
         {taskMutation.isLoading ? (
-          <svg
-            className="animate-spin h-5 w-5 text-white"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
+          <CircularProgress size={20} color="inherit" />
         ) : (
           "Save Task"
         )}
-      </button>
-    </>
+      </Button>
+    </Box>
   );
 }
 

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import CalendarView from "./calenderView";
 import Activities from "./Activities";
-import ProfileNav from '../../components/user/profiveNav';
+import ProfileNav from "../../components/user/profiveNav";
 import { useAuth } from "../../middlewares/auth/authContext";
 import moment from "moment";
 
@@ -14,6 +14,7 @@ function MainCalender() {
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [openFeedback, setOpenFeedback] = useState(null);
+  const [showActivities, setShowActivities] = useState(false); // New state for toggling Activities
   const { user } = useAuth();
 
   const handleToggleFeedback = (id) => {
@@ -41,11 +42,23 @@ function MainCalender() {
     setCurrentYear(year);
   };
 
+  const toggleActivities = () => {
+    setShowActivities((prev) => !prev);
+  };
+
   return (
-    <div className=" mx-auto min-h-screen py-5 px-5 pr-8">
+    <div className="mx-auto min-h-screen py-5 px-5 pr-8 w-full">
       <ProfileNav />
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mt-30">
-        <div className="col-span-1 lg:col-span-8">
+      <div className="flex justify-end mb-4 mt-20">
+        <button
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          onClick={toggleActivities}
+        >
+          {showActivities ? "Hide Activities" : "Show Activities"}
+        </button>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mt-0">
+        <div className={`col-span-1 ${showActivities ? "lg:col-span-8" : "lg:col-span-12"}`}>
           <div className="bg-white/20 rounded-[20px] shadow-lg backdrop-blur-xl border border-gray-200/80 overflow-hidden">
             <div className="w-full h-[calc(100%-50px)]">
               <CalendarView
@@ -62,20 +75,22 @@ function MainCalender() {
             </div>
           </div>
         </div>
-        <div className="col-span-1  AQ lg:col-span-4">
-          <Activities
-            currentMonth={currentMonth}
-            currentYear={currentYear}
-            user={user}
-            handleToggleFeedback={handleToggleFeedback}
-            openFeedback={openFeedback}
-            handlePopoverOpen={handlePopoverOpen}
-            handlePopoverClose={handlePopoverClose}
-            handleFeedbackChange={handleFeedbackChange}
-            loading={loading}
-            feedback={feedback}
-          />
-        </div>
+        {showActivities && (
+          <div className="col-span-1 lg:col-span-4">
+            <Activities
+              currentMonth={currentMonth}
+              currentYear={currentYear}
+              user={user}
+              handleToggleFeedback={handleToggleFeedback}
+              openFeedback={openFeedback}
+              handlePopoverOpen={handlePopoverOpen}
+              handlePopoverClose={handlePopoverClose}
+              handleFeedbackChange={handleFeedbackChange}
+              loading={loading}
+              feedback={feedback}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
