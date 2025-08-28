@@ -187,7 +187,7 @@ function ProfileNav() {
       >
         <MenuItem
           component={Link}
-          to= {user?.role === 'superAdmin' ? "https://admin.immultiverse.co" : "https://user.immultiverse.co"}
+          to= "/profile"
           onClick={handleMenuClose}
           sx={{
             py: 1.5,
