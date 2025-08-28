@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import CryptoJS from "crypto-js";
 import axios from "axios";
-import { useGet } from "../../hooks/useApi";
+import { useGet, usePost } from "../../hooks/useApi";
 
 const AuthContext = createContext();
 
@@ -40,6 +40,8 @@ export const AuthProvider = ({ children }) => {
   const { data: users, loading: apiLoading, error: apiError } = useGet(
     "/employee/get-login-employee"
   );
+
+  const {logoutuser} = usePost('/logout');
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -111,13 +113,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Logout function with single-line role-based redirect
-  const logout = () => {
+  const logout = async() => {
     console.log("Logging out user...");
     const role = user?.role; // store role before clearing
     localStorage.clear();
     setUser(null);
     setToken(null);
-
+    await logoutuser.mutateAsync()
     // Single-line role-based redirect
     window.location.href =
       role === "superAdmin"
