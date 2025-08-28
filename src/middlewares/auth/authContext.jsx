@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
     "/employee/get-login-employee"
   );
 
-  const {logoutuser} = usePost('/logout');
+  const logoutuser = usePost('/logout');
 
   // Load from localStorage on mount
   useEffect(() => {
