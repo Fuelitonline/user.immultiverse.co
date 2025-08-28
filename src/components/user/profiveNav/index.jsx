@@ -20,7 +20,7 @@ function ProfileNav() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    setNotificationCount(4); // Simulate fetching notifications
+    setNotificationCount(0); // Simulate fetching notifications
   }, []);
 
   const handleNotificationClick = () => {
@@ -48,10 +48,8 @@ function ProfileNav() {
     setAnchorEl(null);
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-    handleMenuClose();
+  const handleLogout = async() => {
+    await logout();
   };
 
   return (
@@ -189,7 +187,7 @@ function ProfileNav() {
       >
         <MenuItem
           component={Link}
-          to="/profile"
+          to="https://user.immultiverse.co"
           onClick={handleMenuClose}
           sx={{
             py: 1.5,
@@ -218,6 +216,23 @@ function ProfileNav() {
           <Lock sx={{ mr: 1, color: theme.palette.text.secondary }} />
           Change Password
         </MenuItem>
+
+        {/* <MenuItem
+          component={Link}
+          to="/onboarding-form"
+          onClick={handleMenuClose}
+          sx={{
+            py: 1.5,
+            '&:hover': {
+              backgroundColor: theme.palette.primary.light,
+              color: theme.palette.primary.contrastText,
+            },
+          }}
+        >
+          <Lock sx={{ mr: 1, color: theme.palette.text.secondary }} />
+          Onboarding Form
+        </MenuItem> */}
+
         <MenuItem
           onClick={handleLogout}
           sx={{
@@ -294,20 +309,7 @@ function ProfileNav() {
                 No new notifications.
               </Typography>
             )}
-            {[...Array(notificationCount || 1)].map((_, index) => (
-              <Box
-                key={index}
-                sx={{
-                  padding: '0.5rem 0',
-                  borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
-                  '&:last-child': { borderBottom: 'none' },
-                }}
-              >
-                <Typography variant="body2" sx={{ color: theme.palette.text.primary }}>
-                  Notification {index + 1}: Sample message
-                </Typography>
-              </Box>
-            ))}
+           
           </Box>
         </Paper>
       </CSSTransition>
