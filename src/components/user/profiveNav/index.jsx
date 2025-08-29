@@ -135,9 +135,9 @@ function ProfileNav() {
         }}
         onClick={handleMenuOpen}
       >
-        <Grid item>
+         <Grid item>
           <Avatar
-            src={user?.avatar || user?.name}
+            src={user?.avatar || user?.companyLogo}
             alt="profile"
             sx={{
               width: isSmDown ? '32px' : '36px',
@@ -150,7 +150,9 @@ function ProfileNav() {
                 boxShadow: `0 4px 12px ${theme.palette.grey[400]}30`,
               },
             }}
-          />
+          >
+               {user?.name?.charAt(0) || user?.companyName?.charAt(0)}
+              </Avatar>
         </Grid>
         <Grid item>
           <Typography
