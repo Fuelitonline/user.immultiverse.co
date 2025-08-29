@@ -32,18 +32,18 @@ const EmployeeReimbursement = () => {
   // Normalize data
   const reimbursements = reimbursementData
     ? (Array.isArray(reimbursementData) ? reimbursementData : reimbursementData.data.data || []).map(item => ({
-        id: item._id || '',
-        description: item.description || 'N/A',
-        amount: item.amount || 0,
-        expenseDate: item.expenseDate ? new Date(item.expenseDate).toISOString().split('T')[0] : 'N/A',
-        category: item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'N/A',
-        status: item.status?.toLowerCase() || 'unknown',
-        receipt: item.receiptUrl || 'N/A',
-        processedDate: item.updatedAt ? new Date(item.updatedAt).toISOString().split('T')[0] : null,
-        canReopen: item.reopenAllowed || false,
-        rejectionReason: item.decision?.reason || null,
-        reopen: item.reopen || null,
-      }))
+      id: item._id || '',
+      description: item.description || 'N/A',
+      amount: item.amount || 0,
+      expenseDate: item.expenseDate ? new Date(item.expenseDate).toISOString().split('T')[0] : 'N/A',
+      category: item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'N/A',
+      status: item.status?.toLowerCase() || 'unknown',
+      receipt: item.receiptUrl || 'N/A',
+      processedDate: item.updatedAt ? new Date(item.updatedAt).toISOString().split('T')[0] : null,
+      canReopen: item.reopenAllowed || false,
+      rejectionReason: item.decision?.reason || null,
+      reopen: item.reopen || null,
+    }))
     : [];
 
   const categories = categoryData
@@ -58,9 +58,14 @@ const EmployeeReimbursement = () => {
   const handleInputChange = e => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: name === 'amount' ? (value === '' ? '' : parseFloat(value) || '') : value }));
+    console.log('Input changed:', name, value); // Debug log
   };
 
-  const handleFileUpload = e => setFormData(prev => ({ ...prev, receipt: e.target.files[0] }));
+  const handleFileUpload = e => {
+    const file = e.target.files[0];
+    setFormData(prev => ({ ...prev, receipt: file }));
+    console.log('File uploaded:', file); // Debug log
+  };
 
   const openModal = (type, reimbursement = null) => {
     setModalType(type);
@@ -78,7 +83,7 @@ const EmployeeReimbursement = () => {
 
     if (modalType === 'create') {
       const formDataToSend = new FormData();
-      formDataToSend.append('description', formData.description);
+      formDataToSend.append('description', formData.description.trim());
       formDataToSend.append('amount', parseFloat(formData.amount) || 0);
       formDataToSend.append('expenseDate', formData.expenseDate);
       formDataToSend.append('category', formData.category.toLowerCase());
@@ -121,8 +126,9 @@ const EmployeeReimbursement = () => {
   };
 
   const isFormValid = modalType === 'create'
-    ? formData.description.trim() && formData.amount && !isNaN(parseFloat(formData.amount)) && formData.expenseDate && formData.category && formData.receipt
-    : formData.reopenReason.trim() && formData.receipt;
+    ? formData.description.trim() && formData.amount && !isNaN(parseFloat(formData.amount)) && formData.expenseDate && formData.category && formData.receipt instanceof File
+    : formData.reopenReason.trim() && formData.receipt instanceof File;
+  console.log('Form valid:', isFormValid, formData); // Debug log
 
   const getCategoryColor = category => {
     if (!category) return '#6B7280';
@@ -227,9 +233,9 @@ const EmployeeReimbursement = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box sx={{ p: 0.5, bgcolor: `${r.status === 'approved' ? 'success.main' : r.status === 'pending' ? 'warning.main' : r.status === 're-open' ? 'warning.main' : 'error.main'}20`, borderRadius: '50%' }}>
                         {r.status === 'approved' ? <CheckCircle sx={{ color: 'success.main' }} /> :
-                         r.status === 'pending' ? <Schedule sx={{ color: 'warning.main' }} /> :
-                         r.status === 're-open' ? <Schedule sx={{ color: 'warning.main' }} /> :
-                         <Cancel sx={{ color: 'error.main' }} />}
+                          r.status === 'pending' ? <Schedule sx={{ color: 'warning.main' }} /> :
+                            r.status === 're-open' ? <Schedule sx={{ color: 'warning.main' }} /> :
+                              <Cancel sx={{ color: 'error.main' }} />}
                       </Box>
                       <Typography sx={{ color: r.status === 'approved' ? 'success.main' : r.status === 'pending' ? 'warning.main' : r.status === 're-open' ? 'warning.main' : 'error.main' }}>
                         {r.status.charAt(0).toUpperCase() + r.status.slice(1)}
@@ -311,10 +317,13 @@ const EmployeeReimbursement = () => {
                       freeSolo
                       fullWidth
                       options={categories}
-                      value={formData.category}
+                      value={formData.category || ''} // Ensure value is a string
                       onChange={(e, value) => {
-                        setFormData(prev => ({ ...prev, category: value }));
+                        setFormData(prev => ({ ...prev, category: value || '' }));
                         if (value && !categories.includes(value)) setLocalCategories([...localCategories, value]);
+                      }}
+                      onInputChange={(e, value) => {
+                        setFormData(prev => ({ ...prev, category: value }));
                       }}
                       renderInput={params => <TextField {...params} label="Category" placeholder="Select or type a category..." />}
                       disabled={isFetchingCategories || categoryError}
@@ -427,9 +436,9 @@ const EmployeeReimbursement = () => {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box sx={{ p: 0.5, bgcolor: `${selectedReimbursement?.status === 'approved' ? 'success.main' : selectedReimbursement?.status === 'pending' ? 'warning.main' : selectedReimbursement?.status === 're-open' ? 'warning.main' : 'error.main'}20`, borderRadius: '50%' }}>
                           {selectedReimbursement?.status === 'approved' ? <CheckCircle sx={{ color: 'success.main' }} /> :
-                           selectedReimbursement?.status === 'pending' ? <Schedule sx={{ color: 'warning.main' }} /> :
-                           selectedReimbursement?.status === 're-open' ? <Schedule sx={{ color: 'warning.main' }} /> :
-                           <Cancel sx={{ color: 'error.main' }} />}
+                            selectedReimbursement?.status === 'pending' ? <Schedule sx={{ color: 'warning.main' }} /> :
+                              selectedReimbursement?.status === 're-open' ? <Schedule sx={{ color: 'warning.main' }} /> :
+                                <Cancel sx={{ color: 'error.main' }} />}
                         </Box>
                         <Typography sx={{ color: selectedReimbursement?.status === 'approved' ? 'success.main' : selectedReimbursement?.status === 'pending' ? 'warning.main' : selectedReimbursement?.status === 're-open' ? 'warning.main' : 'error.main' }}>
                           {selectedReimbursement?.status.charAt(0).toUpperCase() + selectedReimbursement?.status.slice(1)}
