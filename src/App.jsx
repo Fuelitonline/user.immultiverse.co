@@ -121,7 +121,7 @@ const App = () => {
       ) : (
         <>
           <OfflineAlert />
-         {(isAuth?.error?.message ===  "Invalid or expired token." || isAuth?.error?.message ===  'Authentication  is required.' ) && (location.pathname !== '/login' && location.pathname !== '/register') ? <TokenExpire/> : null}
+         {/* {(isAuth?.error?.message ===  "Invalid or expired token." || isAuth?.error?.message ===  'Authentication  is required.' ) && (location.pathname !== '/login' && location.pathname !== '/register') ? <TokenExpire/> : null} */}
           <Nav />
           <Routes>
             
