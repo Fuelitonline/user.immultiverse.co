@@ -34,6 +34,7 @@ import DocumentsPage from './pages/Documents/Documents.jsx';
 import ChangePassword from './pages/Change Password/Password.jsx';
 import Attendance from './pages/MainAttendance/Attendence.jsx';
 import EmployeeReimbursement from './pages/reimbursement/Reimbursement.jsx';
+import AnnouncementDetail from "./pages/announcement/AnnouncementDetail.jsx";
 
 const Nav = () => {
   const location = useLocation();
@@ -145,6 +146,7 @@ const App = () => {
             <Route path="/employees/:route" element={<PrivateRoute><AdminRoute></AdminRoute></PrivateRoute>} />
             <Route path="/tearms&conditions" element={< Tearms/>} />
             <Route path="/privacy&policy" element={< PrivacyPolicy/>} />
+            <Route path="/announcements/:id" element={<AnnouncementDetail />} />
             <Route path="/404" element={<NotFound404 />} />
             <Route path="/new" element={<UserInformation />} />
             <Route path="/settings" element={<AdminBankSettings />} />

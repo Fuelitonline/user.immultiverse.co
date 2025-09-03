@@ -6,6 +6,7 @@ import { CSSTransition } from 'react-transition-group';
 import { useAuth } from '../../../middlewares/auth';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeSwitcher from '../../../theme/themeSwitcher';
+import Announcement from '../../announcement/Announcement';
 import './index.css';
 
 function ProfileNav() {
@@ -53,10 +54,32 @@ function ProfileNav() {
   };
 
   return (
+    <>
     <Box
       sx={{
         position: 'fixed',
         top: 0,
+        left: '220px',
+        right: 0,
+        height: '50px',
+        zIndex: 9999,
+        background: '#fff',
+        backdropFilter: 'blur(30px)',
+        WebkitBackdropFilter: 'blur(30px)',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        display: 'flex',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        gap: '1rem',
+      }}
+      className="glass-effect"
+    >
+    <Announcement limit={3} showNav={false} />
+    </Box>
+    <Box
+      sx={{
+        position: 'fixed',
+        top: 50,
         left: '220px',
         right: 0,
         height: '70px',
@@ -135,7 +158,7 @@ function ProfileNav() {
         }}
         onClick={handleMenuOpen}
       >
-         <Grid item>
+        <Grid item>
           <Avatar
             src={user?.avatar || user?.companyLogo}
             alt="profile"
@@ -189,7 +212,7 @@ function ProfileNav() {
       >
         <MenuItem
           component={Link}
-          to= "/profile"
+          to= {user?.role === 'superAdmin' ? "https://admin.immultiverse.co" : "https://user.immultiverse.co"}
           onClick={handleMenuClose}
           sx={{
             py: 1.5,
@@ -532,6 +555,7 @@ function ProfileNav() {
         </DialogActions>
       </Dialog>
     </Box>
+    </>
   );
 }
 
