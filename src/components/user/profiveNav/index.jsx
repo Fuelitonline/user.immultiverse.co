@@ -55,6 +55,7 @@ function ProfileNav() {
 
   return (
     <>
+    <Box sx={{ height: '120px' , marginBottom:'0.6rem'}}>
     <Box
       sx={{
         position: 'fixed',
@@ -554,6 +555,7 @@ function ProfileNav() {
           </Button>
         </DialogActions>
       </Dialog>
+    </Box>
     </Box>
     </>
   );
