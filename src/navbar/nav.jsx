@@ -115,6 +115,7 @@ const Navbar = () => {
     width: '220px',
     borderRight: `1px solid ${theme.palette.divider}`,
     height: '100vh',
+    marginBottom: '80px',
     position: 'sticky',
     top: 0,
     display: 'flex',
