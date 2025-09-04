@@ -61,9 +61,9 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
     {},
     { queryKey: ['meetings', user?._id, startDate, endDate] }
   );
-  const { data: getDailyWorkData, isLoading: isDailyWorkLoading, error: dailyWorkError, refetch } = useGet(
+ const { data: getDailyWorkData, isLoading: isDailyWorkLoading, error: dailyWorkError, refetch } = useGet(
     '/employee/daily-work/get',
-    { employeeId: user?._id, startDate, endDate },
+    { employeeId: user?._id, currentMonth, currentYear, date : selectedDate },
     {},
     { queryKey: ['dailyWork', user?._id, startDate, endDate] }
   );
