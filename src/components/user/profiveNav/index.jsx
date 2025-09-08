@@ -1,32 +1,126 @@
-import { useEffect, useState } from 'react';
-import { Notifications, School, Business, SwitchAccessShortcut, Person, Lock, Logout } from "@mui/icons-material";
-import { Box, Grid, IconButton, Badge, Typography, useTheme, useMediaQuery, Paper, Dialog, DialogContent, DialogActions, Button, Avatar, Fade, Menu, MenuItem } from "@mui/material";
+
+
+
+import { useEffect, useState, useRef } from 'react';
+import { Notifications, SwitchAccessShortcut, Person, Lock, Logout } from "@mui/icons-material";
+import { Box, Grid, IconButton, Badge, Typography, useTheme, useMediaQuery, Paper, Avatar, Menu, MenuItem, Fade, Dialog, DialogContent, DialogActions, Button } from "@mui/material";
 import CloseIcon from '@mui/icons-material/Close';
 import { CSSTransition } from 'react-transition-group';
+import './index.css';
 import { useAuth } from '../../../middlewares/auth';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeSwitcher from '../../../theme/themeSwitcher';
 import Announcement from '../../announcement/Announcement';
-import './index.css';
+import { socket } from "../../../utils/socket";
+import axios from "axios";
+import { School, Business } from "@mui/icons-material";
+import { server_url } from '../../../utils/server';
+
+
+
+const BASE_LMS_URL = import.meta.env.VITE_LMS_URL || "https://lms.immultiverse.co";
+const BASE_HRM_URL = import.meta.env.VITE_HRM_URL || "https://hr.immultiverse.co";
+const BASE_API_URL = import.meta.env.VITE_SERVER_URL || server_url; 
+// const NOTIFICATION_SOUND_PATH = "/sound/notification.mp3";
+const NOTIFICATION_SOUND_PATH = "/sound/notification.mp3";
 
 function ProfileNav() {
   const theme = useTheme();
   const isSmDown = useMediaQuery(theme.breakpoints.down('sm'));
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
+  const navigate = useNavigate();
+
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [notificationCount, setNotificationCount] = useState(0);
   const [showModeDialog, setShowModeDialog] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
-  const navigate = useNavigate();
 
+  const audioRef = useState(new Audio(NOTIFICATION_SOUND_PATH))[0];
+  const notificationTabRef = useRef(null);
+
+  // Fetch notifications from backend
+  const fetchNotifications = async () => {
+    try {
+      const res = await axios.get("http://localhost:6500/api/notification/get-notifications", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications(res.data?.data || []);
+      const unreadCount = (res.data?.data || []).filter(n => !n.isRead).length;
+      setNotificationCount(unreadCount);
+    } catch (err) {
+      console.error("Error fetching notifications", err);
+    }
+  };
+
+  // ✅ Mark notifications as read
+  const markAsRead = async () => {
+    try {
+      const unreadIds = notifications.filter(n => !n.isRead).map(n => n._id);
+      if (unreadIds.length === 0) return;
+
+      await axios.post("http://localhost:6500/api/notification/read-notifications", {
+        notificationIds: unreadIds
+      }, { headers: { Authorization: `Bearer ${token}` } });
+
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setNotificationCount(0);
+    } catch (err) {
+      console.error("Error marking notifications as read", err);
+    }
+  };
+
+  // ✅ Load initial notifications + Socket setup
   useEffect(() => {
-    setNotificationCount(0); // Simulate fetching notifications
-  }, []);
+    if (!token || !user?._id) return;
+
+    if ("Notification" in window) {
+      Notification.requestPermission().then(permission => {
+        if (permission !== "granted") {
+          console.log("Notification permission not granted. System notifications will not be shown.");
+        }
+      });
+    }
+
+    fetchNotifications();
+
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    socket.emit("joinRoom", user._id);
+
+    socket.on("connect", () => {
+      console.log("✅ Socket connected:", socket.id);
+    });
+
+    socket.on("new-notification", (notif) => {
+      audioRef.play().catch(e => console.error("Error playing sound:", e));
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(notif.message.split(":")[0] || "New Notification", {
+          body: notif.message,
+          icon: '/images/logo.png'
+        });
+      }
+
+      setNotifications((prev) => [notif, ...prev]);
+      setNotificationCount((prev) => prev + 1);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("❌ Socket disconnected");
+    });
+
+    return () => {
+      socket.off("new-notification");
+    };
+  }, [token, user?._id]);
 
   const handleNotificationClick = () => {
     setShowNotifications(true);
-    setNotificationCount(0);
+    markAsRead();
   };
 
   const handleCloseNotification = () => {
@@ -49,12 +143,14 @@ function ProfileNav() {
     setAnchorEl(null);
   };
 
-  const handleLogout = async() => {
+  const handleLogout = async () => {
     await logout();
+    navigate('/login');
   };
 
   return (
     <>
+    <Box>
     <Box
       sx={{
         position: 'fixed',
@@ -74,7 +170,7 @@ function ProfileNav() {
       }}
       className="glass-effect"
     >
-    <Announcement limit={3} showNav={false} />
+      <Announcement limit={3} showNav={false} />
     </Box>
     <Box
       sx={{
@@ -84,6 +180,7 @@ function ProfileNav() {
         right: 0,
         height: '70px',
         zIndex: 1,
+        marginBottom: '2rem',
         background: '#fff',
         backdropFilter: 'blur(30px)',
         WebkitBackdropFilter: 'blur(30px)',
@@ -96,6 +193,7 @@ function ProfileNav() {
       }}
       className="glass-effect"
     >
+      {/* 🔔 Mode Switcher Icon */}
       <IconButton
         sx={{
           backgroundColor: theme.palette.grey[50],
@@ -115,6 +213,7 @@ function ProfileNav() {
         <SwitchAccessShortcut sx={{ color: theme.palette.primary.main, fontSize: isSmDown ? '1.3rem' : '1.5rem' }} />
       </IconButton>
 
+      {/* 🔔 Notification Icon */}
       <IconButton
         sx={{
           backgroundColor: theme.palette.grey[50],
@@ -149,6 +248,7 @@ function ProfileNav() {
         </Badge>
       </IconButton>
 
+      {/* 👤 Profile Section */}
       <Grid
         container
         alignItems="center"
@@ -174,8 +274,8 @@ function ProfileNav() {
               },
             }}
           >
-               {user?.name?.charAt(0) || user?.companyName?.charAt(0)}
-              </Avatar>
+            {user?.name?.charAt(0) || user?.companyName?.charAt(0)}
+          </Avatar>
         </Grid>
         <Grid item>
           <Typography
@@ -192,6 +292,7 @@ function ProfileNav() {
         </Grid>
       </Grid>
 
+      {/* ⚙️ Profile Menu */}
       <Menu
         anchorEl={anchorEl}
         open={open}
@@ -212,7 +313,7 @@ function ProfileNav() {
       >
         <MenuItem
           component={Link}
-          to= {user?.role === 'superAdmin' ? "https://admin.immultiverse.co" : "https://user.immultiverse.co"}
+          to={`/employee/${user?._id}`}
           onClick={handleMenuClose}
           sx={{
             py: 1.5,
@@ -225,7 +326,6 @@ function ProfileNav() {
           <Person sx={{ mr: 1, color: theme.palette.text.secondary }} />
           Profile
         </MenuItem>
-        
         <MenuItem
           component={Link}
           to="/profilechange-password"
@@ -241,23 +341,6 @@ function ProfileNav() {
           <Lock sx={{ mr: 1, color: theme.palette.text.secondary }} />
           Change Password
         </MenuItem>
-
-        {/* <MenuItem
-          component={Link}
-          to="/onboarding-form"
-          onClick={handleMenuClose}
-          sx={{
-            py: 1.5,
-            '&:hover': {
-              backgroundColor: theme.palette.primary.light,
-              color: theme.palette.primary.contrastText,
-            },
-          }}
-        >
-          <Lock sx={{ mr: 1, color: theme.palette.text.secondary }} />
-          Onboarding Form
-        </MenuItem> */}
-
         <MenuItem
           onClick={handleLogout}
           sx={{
@@ -273,6 +356,7 @@ function ProfileNav() {
         </MenuItem>
       </Menu>
 
+      {/* 🎨 Theme Switcher */}
       <Grid item>
         <IconButton
           sx={{
@@ -293,27 +377,30 @@ function ProfileNav() {
         </IconButton>
       </Grid>
 
+      {/* 🔔 Notification Tab */}
       <CSSTransition
         in={showNotifications}
         timeout={300}
         classNames="notification-tab"
         unmountOnExit
+        nodeRef={notificationTabRef}
       >
         <Paper
+          ref={notificationTabRef}
           elevation={4}
           sx={{
-            position: 'absolute',
-            top: 'calc(100% + 8px)',
-            right: '1rem',
-            width: isSmDown ? '90vw' : '320px',
-            maxHeight: '400px',
-            overflowY: 'auto',
-            borderRadius: '16px',
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(8px)',
-            boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15)',
-            padding: '1rem',
-            zIndex: 1200,
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            right: "1rem",
+            width: isSmDown ? "90vw" : "320px",
+            maxHeight: "400px",
+            overflowY: "auto",
+            borderRadius: "16px",
+            background: "rgba(255, 255, 255, 0.95)",
+            backdropFilter: "blur(8px)",
+            boxShadow: "0 8px 16px rgba(0, 0, 0, 0.15)",
+            padding: "1rem",
+            zIndex: 1200
           }}
         >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -324,21 +411,38 @@ function ProfileNav() {
               <CloseIcon sx={{ fontSize: '1.25rem', color: theme.palette.text.secondary }} />
             </IconButton>
           </Box>
-          <Box>
-            {notificationCount > 0 ? (
-              <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
-                You have {notificationCount} new notifications.
+          <Box mt={2}>
+            {notifications.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No notifications available
               </Typography>
             ) : (
-              <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
-                No new notifications.
-              </Typography>
+              notifications.map((n) => (
+                <Box
+                  key={n._id || Math.random()}
+                  sx={{
+                    p: 1,
+                    mb: 1,
+                    borderRadius: "10px",
+                    backgroundColor: n.isRead ? theme.palette.grey[100] : theme.palette.primary.light,
+                    opacity: n.isRead ? 0.7 : 1,
+                    transition: 'background-color 0.3s ease, opacity 0.3s ease'
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: theme.palette.text.primary }}>
+                    {n.message || "New notification"}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {new Date(n.createdAt).toLocaleString()}
+                  </Typography>
+                </Box>
+              ))
             )}
-           
           </Box>
         </Paper>
       </CSSTransition>
 
+      {/* 🚀 Mode Dialog */}
       <Dialog
         open={showModeDialog}
         onClose={handleModeDialogClose}
@@ -384,12 +488,12 @@ function ProfileNav() {
               color: theme.palette.primary.dark,
               letterSpacing: '-0.02em',
               fontSize: isSmDown ? '1.5rem' : '1.75rem',
-              background:theme.palette.primary.main,
+              background: theme.palette.primary.main,
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}
           >
-            Select Your Mode
+            Choose Your Mode
           </Typography>
           <IconButton onClick={handleModeDialogClose} size="medium">
             <CloseIcon sx={{ fontSize: '1.75rem', color: theme.palette.text.secondary, '&:hover': { color: theme.palette.error.main } }} />
@@ -398,7 +502,8 @@ function ProfileNav() {
         <DialogContent sx={{ p: '2rem', backgroundColor: theme.palette.background.default, display: 'flex', justifyContent: 'center' }}>
           <Grid container spacing={2} justifyContent="center" sx={{ maxWidth: '500px' }}>
             <Grid item xs={6}>
-              <Link to="https://lms.immultiverse.co" style={{ textDecoration: 'none' }}>
+              {/* LMS URL wahi hai */}
+              <Link to={BASE_LMS_URL} style={{ textDecoration: 'none' }}>
                 <Box
                   sx={{
                     display: 'flex',
@@ -464,7 +569,8 @@ function ProfileNav() {
               </Link>
             </Grid>
             <Grid item xs={6}>
-              <Link to="https://hr.immultiverse.co" style={{ textDecoration: 'none' }}>
+              {/* HRM URL wahi hai */}
+              <Link to={BASE_HRM_URL} style={{ textDecoration: 'none' }}>
                 <Box
                   sx={{
                     display: 'flex',
@@ -554,6 +660,7 @@ function ProfileNav() {
           </Button>
         </DialogActions>
       </Dialog>
+    </Box>
     </Box>
     </>
   );
