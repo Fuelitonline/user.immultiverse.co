@@ -62,7 +62,7 @@ function Employeestab() {
     setCurrentPage(value);
   };
 
-  const getManagers = () => employee?.filter((emp) => emp.role === 'Manager') || [];
+  const getManagers = () => employee?.filter((emp) => emp?.role === 'Manager') || [];
 
   return (
     <Box sx={{ width: '83%', display: 'flex', flexDirection: 'column', gap: '0rem' }}>
