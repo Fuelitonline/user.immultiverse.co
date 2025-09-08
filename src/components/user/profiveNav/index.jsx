@@ -322,7 +322,7 @@ function ProfileNav() {
       >
         <MenuItem
           component={Link}
-          to={`/employee/${user?._id}`}
+          to={`/profile`}
           onClick={handleMenuClose}
           sx={{
             py: 1.5,
