@@ -291,6 +291,7 @@ const EmployeeReimbursement = () => {
       maxWidth: '1400px',
       mx: 'auto',
       px: { xs: 2, sm: 4 },
+      mt: 4,
       gap: 4,
       py: 6,
       overflowX: 'hidden',
