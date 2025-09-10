@@ -55,6 +55,8 @@
         |-- additems
             |-- project
                 |-- index.jsx
+        |-- announcement
+            |-- Announcement.jsx
         |-- company
             |-- payrolleSetup
                 |-- index.jsx
@@ -216,6 +218,8 @@
             |-- Privecy.jsx
             |-- Tearms.jsx
             |-- tearm.css
+        |-- announcement
+            |-- AnnouncementDetail.jsx
         |-- auth
             |-- AuthSideStyle
                 |-- index.jsx
@@ -288,5 +292,6 @@
     |-- utils
         |-- decryption.js
         |-- server.js
+        |-- socket.js
 |-- tailwind.config.js
 |-- vite.config.js

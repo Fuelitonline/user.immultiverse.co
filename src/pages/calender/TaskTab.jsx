@@ -50,6 +50,18 @@ function TaskTab({ description, setDescription, file, setFile, setErrorMessage, 
   console.log('TaskTab - Props:', { description, file, selectedDate, selectedDateRange, assignFor });
   console.log('TaskTab - Employees:', { employees, employeesLoading, employeesError });
 
+  // Function to convert file to buffer array
+  const toBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsArrayBuffer(file); // read as ArrayBuffer (raw binary)
+      reader.onload = () => {
+        const buffer = new Uint8Array(reader.result);
+        resolve(Array.from(buffer)); // convert to array of numbers (buffer style)
+      };
+      reader.onerror = (error) => reject(error);
+    });
+
   // Function to generate an array of dates in the selected range
   const getDatesInRange = useCallback((start, end) => {
     if (!start || !end || !moment(start).isValid() || !moment(end).isValid()) return [];
@@ -126,7 +138,6 @@ function TaskTab({ description, setDescription, file, setFile, setErrorMessage, 
   const handleSubmit = useCallback(async () => {
     if (
       !description.trim() ||
-      !file ||
       assignFor.length === 0 ||
       taskDates.length === 0 ||
       !startDate ||
@@ -146,21 +157,44 @@ function TaskTab({ description, setDescription, file, setFile, setErrorMessage, 
 
     try {
       setErrorMessage("");
+      
+      // Convert file to buffer array if file exists
+      let bufferArray = null;
+      let fileName = null;
+      let fileType = null;
+      
+      if (file) {
+        bufferArray = await toBase64(file);
+        fileName = file.name;
+        fileType = file.type;
+      }
+
       // Create a task for each date in the range
       for (const date of taskDates) {
         const startDateFormatted = moment(date).tz('UTC').format('YYYY-MM-DD');
         const endDateFormatted = moment(taskDates.length === 1 ? date : selectedDateRange?.end || date).tz('UTC').format('YYYY-MM-DD');
 
-        const formData = new FormData();
-        formData.append("description", description);
-        formData.append("startDate", startDateFormatted);
-        formData.append("endDate", endDateFormatted);
-        formData.append("file", file);
-        assignFor.forEach((employeeId) => {
-          formData.append("assignFor", employeeId);
-        });
-        await taskMutation.mutateAsync(formData);
+        // Prepare JSON payload
+        const jsonPayload = {
+          description: description,
+          startDate: startDateFormatted,
+          endDate: endDateFormatted,
+          assignFor: assignFor,
+          ...(file && {
+            file: {
+              buffer: bufferArray,
+              name: fileName,
+              type: fileType,
+              size: file.size
+            }
+          })
+        };
+
+        // Send JSON request instead of FormData
+        await taskMutation.mutateAsync(jsonPayload);
       }
+
+      // Reset form after successful submission
       setDescription("");
       setFile(null);
       setAssignFor([]);
@@ -197,7 +231,6 @@ function TaskTab({ description, setDescription, file, setFile, setErrorMessage, 
     selectedDate,
     selectedDateRange
   ]);
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 1 }}>
       {/* Task Description */}
