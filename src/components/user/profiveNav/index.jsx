@@ -54,7 +54,7 @@ function ProfileNav() {
         { enabled: !!token && !!user?._id }
     );
 
-    // Update state when data changes (Fixes infinite loop)
+    // Update state when data changes (Fixes infinite loop) add
     useEffect(() => {
         if (data?.data?.data?.notifications) {
             const newNotifications = data.data.data.notifications;
