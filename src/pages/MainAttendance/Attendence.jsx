@@ -30,7 +30,7 @@ const Attendance = ({ size = { height: '100vh', width: '100%' } }) => {
         </Grid>
       </Box>
 
-      <Grid container spacing={2} justifyContent="center" alignItems="stretch" sx={{ flexGrow: 1 }}>
+      <Grid container spacing={2} justifyContent="center" alignItems="stretch" sx={{ flexGrow: 1, mt: 4 }}>
         <Grid item xs={12} md={12}>
           <Paper
             elevation={8}

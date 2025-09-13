@@ -671,7 +671,7 @@ const LeavePage = () => {
         </Grid>
       </Box>
 
-      <Box sx={{ pt: '10px' }}>
+      <Box sx={{ pt: '10px', mt: 4 }}>
         <Grid container spacing={3} flexDirection="row">
           {isLoading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', width: '100%' }}>

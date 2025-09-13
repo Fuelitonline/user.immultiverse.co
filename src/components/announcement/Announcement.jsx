@@ -54,6 +54,7 @@ const Announcement = ({ limit = null }) => {
           minHeight: "8vh",
           display: "flex",
           alignItems: "center",
+          width: "100%",
           justifyContent: "center",
           background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
           borderRadius: 2,

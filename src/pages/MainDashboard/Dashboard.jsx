@@ -114,7 +114,7 @@ function DashboardPage() {
       </Box>
 
       {/* Employee Info Cards, Leave Charts, Attendance Chart, and Custom Event Section */}
-      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', mt: 4 }}>
         {empLoading || leavesLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
             <CircularProgress color="primary" size={50} />

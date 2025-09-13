@@ -35,11 +35,13 @@ import ChangePassword from './pages/Change Password/Password.jsx';
 import Attendance from './pages/MainAttendance/Attendence.jsx';
 import EmployeeReimbursement from './pages/reimbursement/Reimbursement.jsx';
 import AnnouncementDetail from "./pages/announcement/AnnouncementDetail.jsx";
+import { ALLOWED_PORTALS } from './constants/portals.js';
+import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute.jsx';
 
 const Nav = () => {
   const location = useLocation();
   const currentPath = location.pathname;
-  return  currentPath === '/login' || currentPath === '/register' || currentPath === '/tearms&conditions' || currentPath === '/privacy&policy' || currentPath === '/404' ? null : <Navbar />;
+  return currentPath === '/login' || currentPath === '/register' || currentPath === '/tearms&conditions' || currentPath === '/privacy&policy' || currentPath === '/404' ? null : <Navbar />;
 }
 
 
@@ -101,7 +103,7 @@ const App = () => {
 
   // Force re-check birthday on route change (using useLocation hook)
   const location = useLocation();
-  
+
   useEffect(() => {
     const birthdayShown = localStorage.getItem('isBirthdayShown');
     if (!birthdayShown && events?.data?.data?.length > 0) {
@@ -122,37 +124,50 @@ const App = () => {
       ) : (
         <>
           <OfflineAlert />
-         {/* {(isAuth?.error?.message ===  "Invalid or expired token." || isAuth?.error?.message ===  'Authentication  is required.' ) && (location.pathname !== '/login' && location.pathname !== '/register') ? <TokenExpire/> : null} */}
+          {/* {(isAuth?.error?.message ===  "Invalid or expired token." || isAuth?.error?.message ===  'Authentication  is required.' ) && (location.pathname !== '/login' && location.pathname !== '/register') ? <TokenExpire/> : null} */}
           <Nav />
           <Routes>
-            
-            <Route path="/" element={<PrivateRoute>< DashboardPage/></PrivateRoute>} />
-            <Route path="/Document" element={<PrivateRoute>< DocumentsPage/></PrivateRoute>} />
-            <Route path="/profile" element= {<PrivateRoute><ProfilePage/></PrivateRoute> } />
-            <Route path="/profileleave" element={<PrivateRoute>< LeavePage/></PrivateRoute>} />
-            <Route path="/profileattendance" element={<PrivateRoute><Attendance/></PrivateRoute>}/>
-            <Route path="/profilepayroll" element={<PrivateRoute>< PayrollPage/></PrivateRoute>} />
-            <Route path="/calendar" element={<PrivateRoute><MainCalender /></PrivateRoute>} />
             <Route path="/register" element={<RagisterUser />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path='/reimbursement' element={<EmployeeReimbursement/>}/>
-            <Route path="/profilechange-password" element={< ChangePassword/> }/>
-            <Route path="/employees/Attendance" element={< EmployeeTable/>}/>
-            <Route path="/employees/Departments" element={<Departments />}/>
-            <Route path="/employees/Employees" element={<Employeestab />}/>
-            <Route path="/bucketleave" element={<LeaveBucket />}/>
-            <Route path="/candidates" element={< Candidates />}/>
-            <Route path="/incentive" element={<Incentive />} />
-            <Route path="/employees/:route" element={<PrivateRoute><AdminRoute></AdminRoute></PrivateRoute>} />
-            <Route path="/tearms&conditions" element={< Tearms/>} />
-            <Route path="/privacy&policy" element={< PrivacyPolicy/>} />
-            <Route path="/announcements/:id" element={<AnnouncementDetail />} />
             <Route path="/404" element={<NotFound404 />} />
-            <Route path="/new" element={<UserInformation />} />
-            <Route path="/settings" element={<AdminBankSettings />} />
+
+            {/* Protected portal routes */}
+            <Route element={<ProtectedRoute currentPortal="user" />}>
+              <Route path="/" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+              <Route path="/Document" element={<PrivateRoute><DocumentsPage /></PrivateRoute>} />
+              <Route path="/tearms&conditions" element={<Tearms />} />
+              <Route path="/privacy&policy" element={<PrivacyPolicy />} />
+              <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+              <Route path="/profileleave" element={<PrivateRoute><LeavePage /></PrivateRoute>} />
+              <Route path="/profileattendance" element={<PrivateRoute><Attendance /></PrivateRoute>} />
+              <Route path="/profilepayroll" element={<PrivateRoute><PayrollPage /></PrivateRoute>} />
+              <Route path="/calendar" element={<PrivateRoute><MainCalender /></PrivateRoute>} />
+              <Route path="/reimbursement" element={<EmployeeReimbursement />} />
+              <Route path="/profilechange-password" element={<ChangePassword />} />
+              <Route path="/employees/Attendance" element={<EmployeeTable />} />
+              <Route path="/employees/Departments" element={<Departments />} />
+              <Route path="/employees/Employees" element={<Employeestab />} />
+              <Route path="/bucketleave" element={<LeaveBucket />} />
+              <Route path="/candidates" element={<Candidates />} />
+              <Route path="/incentive" element={<Incentive />} />
+              <Route path="/announcements/:id" element={<AnnouncementDetail />} />
+              <Route path="/new" element={<UserInformation />} />
+              <Route path="/settings" element={<AdminBankSettings />} />
               <Route path="/integration" element={<IntegrationShowcase />} />
               <Route path="/integration/:name" element={<IntegrationDetail />} />
+            </Route>
+
+            {/* Example admin-only route */}
+            <Route
+              path="/employees/:route"
+              element={
+                <PrivateRoute>
+                  <AdminRoute />
+                </PrivateRoute>
+              }
+            />
           </Routes>
+
         </>
       )}
     </>

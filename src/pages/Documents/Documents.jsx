@@ -115,6 +115,7 @@ function DocumentsPage() {
                 sx={{
                     width: '100%',
                     borderRadius: '16px',
+                    mt: 4,
                     p: { xs: 2, sm: 3, md: 4 },
                     bgcolor: theme.palette.background.paper,
                     border: `1px solid ${theme.palette.divider}`,
