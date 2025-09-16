@@ -9,11 +9,15 @@
 |-- package-lock.json
 |-- package.json
 |-- public
+    |-- Images
+        |-- logo.png
     |-- Loading
         |-- Index.jsx
         |-- intro.mp4
     |-- logoCompany.jpeg
     |-- paymentQr.jpeg
+    |-- sound
+        |-- notification.mp3
     |-- vite.svg
 |-- src
     |-- .env
@@ -52,6 +56,8 @@
             |-- win.ico
         |-- react.svg
     |-- components
+        |-- ProtectedRoute
+            |-- ProtectedRoute.jsx
         |-- additems
             |-- project
                 |-- index.jsx
@@ -89,6 +95,8 @@
                 |-- tracker.jsx
         |-- videoPlayer
             |-- index.jsx
+    |-- constants
+        |-- portals.js
     |-- helpers
         |-- axios
             |-- QueryClient.js

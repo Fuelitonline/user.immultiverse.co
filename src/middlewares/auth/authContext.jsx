@@ -370,11 +370,8 @@ export const AuthProvider = ({ children }) => {
 // 🚨 Auto redirect if no portal access
 useEffect(() => {
   if (loading) return;
-  if (token && !user) return;
-  if (!token || !user) {
-    console.log("No user found, redirecting to login...");
-    return;
-  }
+   if (user) {
+
   const redirectPortal = checkPortalAccess(user);
   if (redirectPortal === "user") {
     window.location.href =
@@ -382,9 +379,8 @@ useEffect(() => {
       window.location.hostname === "127.0.0.1"
         ? ALLOWED_PORTALS.user.local
         : ALLOWED_PORTALS.user.prod;
-  } else if (redirectPortal === "logout") {
-    logout();
   }
+   }
 }, [user, token, loading]);
 
 
