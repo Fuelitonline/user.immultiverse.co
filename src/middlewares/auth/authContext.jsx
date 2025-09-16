@@ -161,6 +161,8 @@
 //   }
 //   return context;
 // };
+
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import CryptoJS from "crypto-js";
@@ -227,6 +229,7 @@ export const AuthProvider = ({ children }) => {
     "/employee/get-login-employee"
   );
   const logoutuser = usePost("/logout");
+  
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -364,22 +367,26 @@ export const AuthProvider = ({ children }) => {
     return () => axios.interceptors.response.eject(interceptor);
   }, [user]);
 
-  // 🔥 Auto redirect if no portal access
-  useEffect(() => {
-    if (!loading && user) {
-      const redirectPortal = checkPortalAccess(user);
+// 🚨 Auto redirect if no portal access
+useEffect(() => {
+  if (loading) return;
+  if (token && !user) return;
+  if (!token || !user) {
+    console.log("No user found, redirecting to login...");
+    return;
+  }
+  const redirectPortal = checkPortalAccess(user);
+  if (redirectPortal === "user") {
+    window.location.href =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1"
+        ? ALLOWED_PORTALS.user.local
+        : ALLOWED_PORTALS.user.prod;
+  } else if (redirectPortal === "logout") {
+    logout();
+  }
+}, [user, token, loading]);
 
-      if (redirectPortal === "user") {
-        window.location.href =
-          window.location.hostname === "localhost" ||
-          window.location.hostname === "127.0.0.1"
-            ? ALLOWED_PORTALS.user.local
-            : ALLOWED_PORTALS.user.prod;
-      } else if (redirectPortal === "logout") {
-        logout();
-      }
-    }
-  }, [user, loading]);
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, loading }}>
