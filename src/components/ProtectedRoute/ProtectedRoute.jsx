@@ -30,7 +30,7 @@ const ProtectedRoute = ({ currentPortal }) => {
   const { user, loading } = useAuth();
 
   if (loading) return null;
-
+  if (!user)  return null
  
 
   // ✅ SuperAdmin ke liye bypass
