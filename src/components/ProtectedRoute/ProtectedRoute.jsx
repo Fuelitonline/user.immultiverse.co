@@ -31,11 +31,7 @@ const ProtectedRoute = ({ currentPortal }) => {
 
   if (loading) return null;
 
-  // Agar login nahi hai
-  if (!user) {
-    window.location.href = "https://auth.immultiverse.co/login";
-    return null;
-  }
+ 
 
   // ✅ SuperAdmin ke liye bypass
   if (user.role?.toLowerCase() === "superadmin") {
