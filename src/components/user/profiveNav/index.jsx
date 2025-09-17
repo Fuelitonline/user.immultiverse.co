@@ -260,7 +260,7 @@ function ProfileNav() {
     return (
         <>
             <Box />
-            <Box
+            {/* <Box
                 sx={{
                     position: 'fixed',
                     top: 0,
@@ -277,17 +277,17 @@ function ProfileNav() {
                     alignItems: 'center',
                 }}
                 className="glass-effect"
-            >
-                <Announcement limit={3} showNav={false} />
-            </Box>
+            > */}
+
+            {/* </Box> */}
             <Box
                 sx={{
                     position: 'fixed',
-                    top: 50,
+                    top: 0,
                     left: '220px',
                     right: 0,
                     height: '70px',
-                    zIndex: 1,
+                    zIndex: 99,
                     marginBottom: '2rem',
                     background: '#fff',
                     backdropFilter: 'blur(30px)',
@@ -297,12 +297,15 @@ function ProfileNav() {
                     justifyContent: 'flex-end',
                     alignItems: 'center',
                     padding: isSmDown ? '0.5rem 1rem' : '0.75rem 2rem',
+                    paddingLeft: 0,
                     gap: '1rem',
                 }}
                 className="glass-effect"
             >
+
+                <Announcement limit={3} showNav={false} />
                 {/* 🔔 Mode Switcher Icon */}
-                {Array.isArray(user?.access) && user.access.length > 0 && (
+                {((Array.isArray(user?.access) && user.access.length > 0) || user?.role === "superAdmin") && (
                     <IconButton
                         sx={{
                             backgroundColor: theme.palette.grey[50],
@@ -324,6 +327,7 @@ function ProfileNav() {
                         />
                     </IconButton>
                 )}
+
 
 
                 {/* 🔔 Notification Icon */}
@@ -662,145 +666,145 @@ function ProfileNav() {
                     </Box>
                     <DialogContent sx={{ p: '2rem', backgroundColor: theme.palette.background.default, display: 'flex', justifyContent: 'center' }}>
                         <Grid container spacing={2} justifyContent="center" sx={{ maxWidth: '500px' }}>
-                             {user?.access?.includes("lms") && (
-                            <Grid item xs={6}>
-                                {/* LMS URL */}
-                                {/* <Link to={BASE_LMS_URL} style={{ textDecoration: 'none' }}> */}
-                                <Box onClick={() => handlePortalSwitch("lms")}
-                                    sx={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        gap: 2,
-                                        p: '1.5rem',
-                                        borderRadius: '20px',
-                                        background: `linear-gradient(145deg, ${theme.palette.info.light}20, ${theme.palette.info.main}10)`,
-                                        transition: 'all 0.4s ease',
-                                        cursor: 'pointer',
-                                        border: `1px solid ${theme.palette.info.main}30`,
-                                        boxShadow: `0 4px 12px ${theme.palette.info.main}20`,
-                                        '&:hover': {
-                                            background: `linear-gradient(145deg, ${theme.palette.info.main}30, ${theme.palette.info.dark}20)`,
-                                            transform: 'translateY(-6px)',
-                                            boxShadow: `0 8px 24px ${theme.palette.info.main}40`,
-                                            borderColor: theme.palette.info.main,
-                                        },
-                                    }}
-                                >
-                                    <Avatar
+                             {(user?.role === "superAdmin" || user?.access?.includes("lms")) && (
+                                <Grid item xs={6}>
+                                    {/* LMS URL */}
+                                    {/* <Link to={BASE_LMS_URL} style={{ textDecoration: 'none' }}> */}
+                                    <Box onClick={() => handlePortalSwitch("lms")}
                                         sx={{
-                                            width: isSmDown ? '64px' : '80px',
-                                            height: isSmDown ? '64px' : '80px',
-                                            backgroundColor: theme.palette.info.light,
-                                            border: `3px solid ${theme.palette.info.main}`,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: 2,
+                                            p: '1.5rem',
+                                            borderRadius: '20px',
+                                            background: `linear-gradient(145deg, ${theme.palette.info.light}20, ${theme.palette.info.main}10)`,
                                             transition: 'all 0.4s ease',
+                                            cursor: 'pointer',
+                                            border: `1px solid ${theme.palette.info.main}30`,
+                                            boxShadow: `0 4px 12px ${theme.palette.info.main}20`,
                                             '&:hover': {
-                                                backgroundColor: theme.palette.info.main,
-                                                transform: 'scale(1.1)',
-                                                boxShadow: `0 4px 16px ${theme.palette.info.main}30`,
+                                                background: `linear-gradient(145deg, ${theme.palette.info.main}30, ${theme.palette.info.dark}20)`,
+                                                transform: 'translateY(-6px)',
+                                                boxShadow: `0 8px 24px ${theme.palette.info.main}40`,
+                                                borderColor: theme.palette.info.main,
                                             },
                                         }}
                                     >
-                                        <School sx={{ color: theme.palette.info.dark, fontSize: isSmDown ? '2.5rem' : '3rem' }} />
-                                    </Avatar>
-                                    <Typography
-                                        variant="h6"
+                                        <Avatar
+                                            sx={{
+                                                width: isSmDown ? '64px' : '80px',
+                                                height: isSmDown ? '64px' : '80px',
+                                                backgroundColor: theme.palette.info.light,
+                                                border: `3px solid ${theme.palette.info.main}`,
+                                                transition: 'all 0.4s ease',
+                                                '&:hover': {
+                                                    backgroundColor: theme.palette.info.main,
+                                                    transform: 'scale(1.1)',
+                                                    boxShadow: `0 4px 16px ${theme.palette.info.main}30`,
+                                                },
+                                            }}
+                                        >
+                                            <School sx={{ color: theme.palette.info.dark, fontSize: isSmDown ? '2.5rem' : '3rem' }} />
+                                        </Avatar>
+                                        <Typography
+                                            variant="h6"
+                                            sx={{
+                                                fontWeight: 700,
+                                                color: theme.palette.info.dark,
+                                                textAlign: 'center',
+                                                letterSpacing: '-0.01em',
+                                                fontSize: isSmDown ? '1.25rem' : '1.5rem',
+                                            }}
+                                        >
+                                            LMS
+                                        </Typography>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: theme.palette.info.dark,
+                                                textAlign: 'center',
+                                                fontSize: isSmDown ? '0.85rem' : '1rem',
+                                                fontWeight: 400,
+                                                opacity: 0.8,
+                                            }}
+                                        >
+                                            Lead Management System
+                                        </Typography>
+                                    </Box>
+                                    {/* </Link> */}
+                                </Grid>
+                            )}
+                            {(user?.role === "superAdmin" || user?.access?.includes("hrm")) && (
+                                <Grid item xs={6}>
+                                    {/* HRM URL */}
+                                    {/* <Link to={BASE_HRM_URL} style={{ textDecoration: 'none' }}> */}
+                                    <Box
+                                        onClick={() => handlePortalSwitch("hrm")}
                                         sx={{
-                                            fontWeight: 700,
-                                            color: theme.palette.info.dark,
-                                            textAlign: 'center',
-                                            letterSpacing: '-0.01em',
-                                            fontSize: isSmDown ? '1.25rem' : '1.5rem',
-                                        }}
-                                    >
-                                        LMS
-                                    </Typography>
-                                    <Typography
-                                        variant="body2"
-                                        sx={{
-                                            color: theme.palette.info.dark,
-                                            textAlign: 'center',
-                                            fontSize: isSmDown ? '0.85rem' : '1rem',
-                                            fontWeight: 400,
-                                            opacity: 0.8,
-                                        }}
-                                    >
-                                        Lead Management System
-                                    </Typography>
-                                </Box>
-                                {/* </Link> */}
-                            </Grid>
-                              )}
-                              {user?.access?.includes("hrm") && (
-                            <Grid item xs={6}>
-                                {/* HRM URL */}
-                                {/* <Link to={BASE_HRM_URL} style={{ textDecoration: 'none' }}> */}
-                                <Box
-                                    onClick={() => handlePortalSwitch("hrm")}
-                                    sx={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        gap: 2,
-                                        p: '1.5rem',
-                                        borderRadius: '20px',
-                                        background: `linear-gradient(145deg, ${theme.palette.success.light}20, ${theme.palette.success.main}10)`,
-                                        transition: 'all 0.4s ease',
-                                        cursor: 'pointer',
-                                        border: `1px solid ${theme.palette.success.main}30`,
-                                        boxShadow: `0 4px 12px ${theme.palette.success.main}20`,
-                                        '&:hover': {
-                                            background: `linear-gradient(145deg, ${theme.palette.success.main}30, ${theme.palette.success.dark}20)`,
-                                            transform: 'translateY(-6px)',
-                                            boxShadow: `0 8px 24px ${theme.palette.success.main}40`,
-                                            borderColor: theme.palette.success.main,
-                                        },
-                                    }}
-                                >
-                                    <Avatar
-                                        sx={{
-                                            width: isSmDown ? '64px' : '80px',
-                                            height: isSmDown ? '64px' : '80px',
-                                            backgroundColor: theme.palette.success.light,
-                                            border: `3px solid ${theme.palette.success.main}`,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: 2,
+                                            p: '1.5rem',
+                                            borderRadius: '20px',
+                                            background: `linear-gradient(145deg, ${theme.palette.success.light}20, ${theme.palette.success.main}10)`,
                                             transition: 'all 0.4s ease',
+                                            cursor: 'pointer',
+                                            border: `1px solid ${theme.palette.success.main}30`,
+                                            boxShadow: `0 4px 12px ${theme.palette.success.main}20`,
                                             '&:hover': {
-                                                backgroundColor: theme.palette.success.main,
-                                                transform: 'scale(1.1)',
-                                                boxShadow: `0 4px 16px ${theme.palette.success.main}30`,
+                                                background: `linear-gradient(145deg, ${theme.palette.success.main}30, ${theme.palette.success.dark}20)`,
+                                                transform: 'translateY(-6px)',
+                                                boxShadow: `0 8px 24px ${theme.palette.success.main}40`,
+                                                borderColor: theme.palette.success.main,
                                             },
                                         }}
                                     >
-                                        <Business sx={{ color: theme.palette.success.dark, fontSize: isSmDown ? '2.5rem' : '3rem' }} />
-                                    </Avatar>
-                                    <Typography
-                                        variant="h6"
-                                        sx={{
-                                            fontWeight: 700,
-                                            color: theme.palette.success.dark,
-                                            textAlign: 'center',
-                                            letterSpacing: '-0.01em',
-                                            fontSize: isSmDown ? '1.25rem' : '1.5rem',
-                                        }}
-                                    >
-                                        HRM
-                                    </Typography>
-                                    <Typography
-                                        variant="body2"
-                                        sx={{
-                                            color: theme.palette.success.dark,
-                                            textAlign: 'center',
-                                            fontSize: isSmDown ? '0.85rem' : '1rem',
-                                            fontWeight: 400,
-                                            opacity: 0.8,
-                                        }}
-                                    >
-                                        Human Resource Management
-                                    </Typography>
-                                </Box>
-                                {/* </Link> */}
-                            </Grid>
-                                )}
+                                        <Avatar
+                                            sx={{
+                                                width: isSmDown ? '64px' : '80px',
+                                                height: isSmDown ? '64px' : '80px',
+                                                backgroundColor: theme.palette.success.light,
+                                                border: `3px solid ${theme.palette.success.main}`,
+                                                transition: 'all 0.4s ease',
+                                                '&:hover': {
+                                                    backgroundColor: theme.palette.success.main,
+                                                    transform: 'scale(1.1)',
+                                                    boxShadow: `0 4px 16px ${theme.palette.success.main}30`,
+                                                },
+                                            }}
+                                        >
+                                            <Business sx={{ color: theme.palette.success.dark, fontSize: isSmDown ? '2.5rem' : '3rem' }} />
+                                        </Avatar>
+                                        <Typography
+                                            variant="h6"
+                                            sx={{
+                                                fontWeight: 700,
+                                                color: theme.palette.success.dark,
+                                                textAlign: 'center',
+                                                letterSpacing: '-0.01em',
+                                                fontSize: isSmDown ? '1.25rem' : '1.5rem',
+                                            }}
+                                        >
+                                            HRM
+                                        </Typography>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: theme.palette.success.dark,
+                                                textAlign: 'center',
+                                                fontSize: isSmDown ? '0.85rem' : '1rem',
+                                                fontWeight: 400,
+                                                opacity: 0.8,
+                                            }}
+                                        >
+                                            Human Resource Management
+                                        </Typography>
+                                    </Box>
+                                    {/* </Link> */}
+                                </Grid>
+                            )}
                         </Grid>
                     </DialogContent>
                     <DialogActions sx={{ p: '1.5rem 2rem', justifyContent: 'flex-end', backgroundColor: theme.palette.background.paper }}>

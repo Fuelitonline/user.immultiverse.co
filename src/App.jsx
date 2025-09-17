@@ -45,8 +45,19 @@ const Nav = () => {
 
 const App = () => {
   const [isEvent, setIsEvent] = useState(false);
-  const { data: events } = useGet('events/today-events');  // Your hook to fetch events
-  const { data: isAuth } = useGet('health');  // Your hook to fetch events
+  const locations = useLocation();
+  const isAuthPage =
+    locations.pathname === "/login" || locations.pathname === "/register";
+
+  // Ab APIs ko conditionally enable kar
+  const { data: events } = useGet("events/today-events", {}, {}, {
+    enabled: !isAuthPage
+  });
+
+  const { data: isAuth } = useGet("health", {}, {}, {
+    enabled: !isAuthPage, // login/register pe mat chala
+    retry: false
+  });
   const [showBirthday, setShowBirthday] = useState(false);
 
   // Function to clear localStorage at midnight

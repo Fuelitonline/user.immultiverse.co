@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -33,6 +33,8 @@ const transformData = (data, limit) => {
 
 const Announcement = ({ limit = null }) => {
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   const navigate = useNavigate();
 
   const {
@@ -47,6 +49,18 @@ const Announcement = ({ limit = null }) => {
     queryKey: ["announcement/user/get", limit],
   });
 
+  const data = Array.isArray(announcementData) ? announcementData : [];
+
+  // Auto-flip announcements every 4 seconds
+  useEffect(() => {
+    if (data.length > 1 && !isPaused) {
+      const interval = setInterval(() => {
+        setCurrentIndex((prev) => (prev + 1) % data.length);
+      }, 4000);
+      return () => clearInterval(interval);
+    }
+  }, [data.length, isPaused]);
+
   if (isLoading) {
     return (
       <Box
@@ -56,11 +70,10 @@ const Announcement = ({ limit = null }) => {
           alignItems: "center",
           width: "100%",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
           borderRadius: 2,
         }}
       >
-        <CircularProgress size={24} sx={{ color: "white" }} />
+        <CircularProgress size={24} sx={{ color: "black" }} />
       </Box>
     );
   }
@@ -80,109 +93,171 @@ const Announcement = ({ limit = null }) => {
     );
   }
 
-  const data = Array.isArray(announcementData) ? announcementData : [];
+  const currentAnnouncement = data[currentIndex];
 
   return (
     <Box sx={{ width: "100%" }}>
-      {/* 🔔 Modern Marquee Bar */}
+      {/* Modern Flip Announcement Bar */}
       {data.length > 0 ? (
         <Paper
-          elevation={8}
+          elevation={0}
           sx={{
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            color: "white",
-            height: 60,
+            background: "transparent",
+            height: 70,
             display: "flex",
             alignItems: "center",
             overflow: "hidden",
             cursor: "pointer",
-            borderRadius: 3,
             position: "relative",
-            "&::before": {
-              content: '""',
+            backdropFilter: "blur(10px)",
+          }}
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+        >
+          {/* Animated Background Gradient */}
+          <Box
+            sx={{
               position: "absolute",
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              background: "linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 100%)",
-              pointerEvents: "none",
-            },
-            boxShadow: "0 8px 32px rgba(102, 126, 234, 0.37)",
-            backdropFilter: "blur(4px)",
-            border: "1px solid rgba(255, 255, 255, 0.18)",
-          }}
-        >
-          <Box sx={{ ml: 3, mr: 2, display: "flex", alignItems: "center" }}>
+             background: "linear-gradient(45deg,rgba(255, 255, 255, 0) 0%, rgba(69, 114, 237, 0.09) 50%, rgba(255, 255, 255, 0) 100%)",
+              animation: "shimmer 3s ease-in-out infinite",
+              "@keyframes shimmer": {
+                "0%": { transform: "translateX(-100%)" },
+                "100%": { transform: "translateX(100%)" },
+              },
+            }}
+          />
+          
+          {/* Icon Section */}
+          <Box sx={{ ml: 2, mr: 1, display: "flex", alignItems: "center", zIndex: 1 }}>
             <motion.div
               animate={{ 
-                rotate: [0, 10, -10, 0],
-                scale: [1, 1.1, 1]
+                rotate: isPaused ? 0 : [0, 15, -15, 0],
+                scale: isPaused ? 1.1 : [1, 1.1, 1]
               }}
               transition={{ 
-                duration: 2, 
-                repeat: Infinity, 
+                duration: isPaused ? 0.3 : 2, 
+                repeat: isPaused ? 0 : Infinity, 
                 ease: "easeInOut" 
               }}
             >
-              <CampaignIcon sx={{ fontSize: 28, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.2))" }} />
+              <Box
+                sx={{
+                  backgroundColor: "rgba(255, 255, 255, 0.2)",
+                  borderRadius: "50%",
+                  padding: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)",
+                }}
+              >
+                <CampaignIcon sx={{ 
+                  fontSize: 26, 
+                  color: "#4572ed",
+                  filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" 
+                }} />
+              </Box>
             </motion.div>
           </Box>
           
-          <motion.div
-            style={{ whiteSpace: "nowrap", flex: 1 }}
-            animate={{ x: ["100%", "-100%"] }}
-            transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
-          >
-            {data.map((item, index) => (
-              <span
-                key={item.id}
-                onClick={() => navigate(`/announcements/${item.id}`)}
-                style={{ 
-                  marginRight: "80px", 
-                  fontWeight: 600, 
-                  fontSize: "16px",
-                  textShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                  display: "inline-block",
-                  transition: "all 0.3s ease",
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = "rgba(255,255,255,0.2)";
-                  e.target.style.transform = "scale(1.05)";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = "transparent";
-                  e.target.style.transform = "scale(1)";
-                }}
-              >
-                📢 {item.title} - {item.description}
-              </span>
-            ))}
-          </motion.div>
+          {/* Content Section with Flip Animation */}
+          <Box sx={{ flex: 1, overflow: "hidden", position: "relative", height: "100%" }}>
+            <AnimatePresence mode="wait">
+              {currentAnnouncement && (
+                <motion.div
+                  key={currentIndex}
+                  initial={{ rotateX: 90, opacity: 0 }}
+                  animate={{ rotateX: 0, opacity: 1 }}
+                  exit={{ rotateX: -90, opacity: 0 }}
+                  transition={{ 
+                    duration: 0.6, 
+                    ease: [0.4, 0, 0.2, 1],
+                  }}
+                  style={{
+                    position: "absolute",
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    transformStyle: "preserve-3d",
+                  }}
+                  onClick={() => navigate(`/announcements/${currentAnnouncement.id}`)}
+                >
+                  <Box sx={{ px: 2, py: 1 }}>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        color: "#4572ed",
+                        fontWeight: 700,
+                        fontSize: "16px",
+                        lineHeight: 1.4,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        maxWidth: "100%",
+                      }}
+                    >
+                      {currentAnnouncement.title}
+                    </Typography>
+                  </Box>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Box>
+
+          {/* Pagination Dots */}
+          {/* {data.length > 1 && (
+            <Box sx={{ mr: 3, display: "flex", gap: 1, zIndex: 1 }}>
+              {data.map((_, index) => (
+                <motion.div
+                  key={index}
+                  onClick={() => setCurrentIndex(index)}
+                  whileHover={{ scale: 1.2 }}
+                  whileTap={{ scale: 0.9 }}
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    backgroundColor: index === currentIndex 
+                      ? "white" 
+                      : "rgba(255, 255, 255, 0.4)",
+                    cursor: "pointer",
+                    boxShadow: index === currentIndex 
+                      ? "0 2px 8px rgba(255, 255, 255, 0.5)" 
+                      : "none",
+                    transition: "all 0.3s ease",
+                  }}
+                />
+              ))}
+            </Box>
+          )} */}
+
         </Paper>
       ) : (
         <Paper
-          elevation={4}
+          elevation={0}
           sx={{
-            background: "linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)",
-            color: "white",
+            color: "#4572ed",
             height: 60,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            background: "transparent",
             borderRadius: 3,
-            boxShadow: "0 4px 20px rgba(156, 163, 175, 0.3)",
+            border: "2px dashed #cbd5e1",
           }}
         >
-          <Typography sx={{ fontWeight: 500, fontSize: "16px" }}>
+          <Typography sx={{ fontWeight: 500, fontSize: "16px", color: "#4572ed" }}>
             📭 No Announcements Available
           </Typography>
         </Paper>
       )}
 
-      {/* 🔔 Modern Popup Modal */}
+      {/* Modern Popup Modal (keeping your existing modal) */}
       <AnimatePresence>
         {selectedAnnouncement && (
           <Backdrop
@@ -190,7 +265,6 @@ const Announcement = ({ limit = null }) => {
             sx={{ 
               zIndex: 99,
               backdropFilter: "blur(10px)",
-              background: "rgba(0,0,0,0.7)"
             }}
           >
             <motion.div
@@ -213,15 +287,14 @@ const Announcement = ({ limit = null }) => {
                   maxWidth: "600px",
                   position: "relative",
                   overflow: "hidden",
-                  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
                   border: "1px solid rgba(255, 255, 255, 0.2)",
                 }}
               >
                 {/* Header with gradient */}
                 <Box
                   sx={{
-                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                    color: "white",
+                    background: "transparent",
+                    color: "#4572ed",
                     p: 3,
                     position: "relative",
                     "&::before": {
@@ -235,7 +308,7 @@ const Announcement = ({ limit = null }) => {
                     },
                   }}
                 >
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", color: "#4572ed" }}>
                     <Typography 
                       variant="h5" 
                       sx={{ 
@@ -271,7 +344,7 @@ const Announcement = ({ limit = null }) => {
                       mb: 3, 
                       lineHeight: 1.7, 
                       fontSize: "16px",
-                      color: "#374151"
+                      color: "#4572ed"
                     }}
                   >
                     {selectedAnnouncement.description}
@@ -291,11 +364,11 @@ const Announcement = ({ limit = null }) => {
                     <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
                       <CalendarTodayIcon sx={{ color: "#667eea", fontSize: 20 }} />
                       <Box sx={{ flex: 1, minWidth: "200px" }}>
-                        <Typography variant="body2" sx={{ color: "#64748b", fontWeight: 500 }}>
+                        <Typography variant="body2" sx={{ color: "#4572ed", fontWeight: 500 }}>
                           <strong style={{ color: "#1e293b" }}>Start:</strong>{" "}
                           {new Date(selectedAnnouncement.startDate).toLocaleString()}
                         </Typography>
-                        <Typography variant="body2" sx={{ color: "#64748b", fontWeight: 500 }}>
+                        <Typography variant="body2" sx={{ color: "#4572ed", fontWeight: 500 }}>
                           <strong style={{ color: "#1e293b" }}>End:</strong>{" "}
                           {new Date(selectedAnnouncement.endDate).toLocaleString()}
                         </Typography>
@@ -327,7 +400,7 @@ const Announcement = ({ limit = null }) => {
                         transition: "all 0.3s ease",
                       }}
                     >
-                      Got it! ✨
+                      Got it!
                     </Button>
                   </motion.div>
                 </Box>
