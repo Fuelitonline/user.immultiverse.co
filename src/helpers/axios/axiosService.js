@@ -37,11 +37,17 @@
 
 // // Response Interceptor
 // apiClient.interceptors.response.use(
-//   (response) => {
-//     return response;
-//   },
+//   (response) => response,
 //   (error) => {
-//     console.error('Response Error:', error);
+//     if (error.response?.status === 401) {
+//       console.warn("Unauthorized! Redirecting to login...");
+
+//       localStorage.removeItem("user");
+//       localStorage.removeItem("authToken");
+
+//       window.location.href = "/login";
+//     }
+
 //     return Promise.reject(error);
 //   }
 // );
@@ -50,7 +56,7 @@
 
 
 
-
+// src/helpers/axios/axiosService.js
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 import { server_url } from '../../utils/server';
@@ -58,7 +64,7 @@ import { server_url } from '../../utils/server';
 const apiClient = axios.create({
   baseURL: server_url,
   timeout: 15000,
-  withCredentials: true // 🔑 include cookies in requests
+  withCredentials: true 
 });
 
 axiosRetry(apiClient, {
@@ -69,10 +75,8 @@ axiosRetry(apiClient, {
     (error.response && error.response.status >= 500)
 });
 
-// Request Interceptor
 apiClient.interceptors.request.use(
   (config) => {
-    // No need for Authorization header if using cookie-based auth
     return config;
   },
   (error) => {
@@ -81,14 +85,20 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response Interceptor
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('Response Error:', error);
+    if (error.response?.status === 401) {
+      console.warn("Unauthorized! Redirecting to login...");
+
+      localStorage.removeItem("user");
+      localStorage.removeItem("authToken");
+
+      window.location.href = "https://auth.immultiverse.co/login?user=user&redirect=admin.immultiverse.co";
+    }
+
     return Promise.reject(error);
   }
 );
 
 export default apiClient;
-
