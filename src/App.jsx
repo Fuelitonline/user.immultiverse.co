@@ -35,8 +35,6 @@ import ChangePassword from './pages/Change Password/Password.jsx';
 import Attendance from './pages/MainAttendance/Attendence.jsx';
 import EmployeeReimbursement from './pages/reimbursement/Reimbursement.jsx';
 import AnnouncementDetail from "./pages/announcement/AnnouncementDetail.jsx";
-import { ALLOWED_PORTALS } from './constants/portals.js';
-import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute.jsx';
 
 const Nav = () => {
   const location = useLocation();
@@ -132,16 +130,16 @@ const App = () => {
             <Route path="/404" element={<NotFound404 />} />
 
             {/* Protected portal routes */}
-            <Route element={<ProtectedRoute currentPortal="user" />}>
-              <Route path="/" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-              <Route path="/Document" element={<PrivateRoute><DocumentsPage /></PrivateRoute>} />
+            <Route element={<PrivateRoute currentPortal="user" />}>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/Document" element={<DocumentsPage />} />
               <Route path="/tearms&conditions" element={<Tearms />} />
               <Route path="/privacy&policy" element={<PrivacyPolicy />} />
-              <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-              <Route path="/profileleave" element={<PrivateRoute><LeavePage /></PrivateRoute>} />
-              <Route path="/profileattendance" element={<PrivateRoute><Attendance /></PrivateRoute>} />
-              <Route path="/profilepayroll" element={<PrivateRoute><PayrollPage /></PrivateRoute>} />
-              <Route path="/calendar" element={<PrivateRoute><MainCalender /></PrivateRoute>} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/profileleave" element={<LeavePage />} />
+              <Route path="/profileattendance" element={<Attendance />} />
+              <Route path="/profilepayroll" element={<PayrollPage />} />
+              <Route path="/calendar" element={<MainCalender />} />
               <Route path="/reimbursement" element={<EmployeeReimbursement />} />
               <Route path="/profilechange-password" element={<ChangePassword />} />
               <Route path="/employees/Attendance" element={<EmployeeTable />} />
