@@ -45,6 +45,7 @@ const Nav = () => {
 
 const App = () => {
   const [isEvent, setIsEvent] = useState(false);
+  const [showBirthday, setShowBirthday] = useState(false);
   const locations = useLocation();
   const isAuthPage =
     locations.pathname === "/login" || locations.pathname === "/register";
@@ -55,10 +56,8 @@ const App = () => {
   });
 
   const { data: isAuth } = useGet("health", {}, {}, {
-    enabled: !isAuthPage, // login/register pe mat chala
-    retry: false
+    enabled: !isAuthPage
   });
-  const [showBirthday, setShowBirthday] = useState(false);
 
   // Function to clear localStorage at midnight
   const clearLocalStorageAtMidnight = () => {
