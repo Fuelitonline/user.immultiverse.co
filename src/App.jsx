@@ -45,9 +45,19 @@ const Nav = () => {
 
 const App = () => {
   const [isEvent, setIsEvent] = useState(false);
-  const { data: events } = useGet('events/today-events');  // Your hook to fetch events
-  const { data: isAuth } = useGet('health');  // Your hook to fetch events
   const [showBirthday, setShowBirthday] = useState(false);
+  const locations = useLocation();
+  const isAuthPage =
+    locations.pathname === "/login" || locations.pathname === "/register";
+
+  // Ab APIs ko conditionally enable kar
+  const { data: events } = useGet("events/today-events", {}, {}, {
+    enabled: !isAuthPage
+  });
+
+  const { data: isAuth } = useGet("health", {}, {}, {
+    enabled: !isAuthPage
+  });
 
   // Function to clear localStorage at midnight
   const clearLocalStorageAtMidnight = () => {

@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import CryptoJS from "crypto-js";
 import axios from "axios";
-import { useGet, usePost } from "../../hooks/useApi";
 import { ALLOWED_PORTALS } from "../../constants/portals";
+import { useGet, usePost } from "../../hooks/useApi";
 
 // Create Context
+
 const AuthContext = createContext();
 
 // Encryption helpers
@@ -59,12 +60,23 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
+
+
+  const isAuthPage =
+    location.pathname === "/login" || location.pathname === "/register";
 
   const { data: users, loading: apiLoading, error: apiError } = useGet(
-    "/employee/get-login-employee"
+    "/employee/get-login-employee",
+    {},
+    {},
+    {
+      enabled: !isAuthPage
+    }
   );
+
   const logoutuser = usePost("/logout");
-  
+
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -144,7 +156,7 @@ export const AuthProvider = ({ children }) => {
       if (userData.role === "superAdmin") {
         window.location.href =
           window.location.hostname === "localhost" ||
-          window.location.hostname === "127.0.0.1"
+            window.location.hostname === "127.0.0.1"
             ? ALLOWED_PORTALS.admin.local
             : ALLOWED_PORTALS.admin.prod;
         return;
@@ -187,36 +199,26 @@ export const AuthProvider = ({ children }) => {
         : "https://auth.immultiverse.co/login?user=employee&redirect=user.immultiverse.co";
   };
 
-  // Global 401 handler
+
+  // 🚨 Auto redirect if no portal access
   useEffect(() => {
-    const interceptor = axios.interceptors.response.use(
-      (res) => res,
-      (err) => {
-        if (err.response?.status === 401) {
-          console.log("401 error detected, logging out...");
-          logout();
-        }
-        return Promise.reject(err);
+    if (loading) return;
+
+    if (location.pathname === "/login" || location.pathname === "/register") {
+      return;
+    }
+
+    if (user) {
+      const redirectPortal = checkPortalAccess(user);
+      if (redirectPortal === "user") {
+        window.location.href =
+          window.location.hostname === "localhost" ||
+            window.location.hostname === "127.0.0.1"
+            ? ALLOWED_PORTALS.user.local
+            : ALLOWED_PORTALS.user.prod;
       }
-    );
-    return () => axios.interceptors.response.eject(interceptor);
-  }, [user]);
-
-// 🚨 Auto redirect if no portal access
-useEffect(() => {
-  if (loading) return;
-   if (user) {
-
-  const redirectPortal = checkPortalAccess(user);
-  if (redirectPortal === "user") {
-    window.location.href =
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1"
-        ? ALLOWED_PORTALS.user.local
-        : ALLOWED_PORTALS.user.prod;
-  }
-   }
-}, [user, token, loading]);
+    }
+  }, [user, token, loading]);
 
 
   return (

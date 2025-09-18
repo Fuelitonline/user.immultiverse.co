@@ -21,6 +21,7 @@ const BASE_LMS_URL = import.meta.env.VITE_LMS_URL || "https://lms.immultiverse.c
 const BASE_HRM_URL = import.meta.env.VITE_HRM_URL || "https://hr.immultiverse.co";
 const NOTIFICATION_SOUND_PATH = "/sound/notification.mp3";
 
+
 function ProfileNav() {
     const theme = useTheme();
     const isSmDown = useMediaQuery(theme.breakpoints.down('sm'));
@@ -55,47 +56,39 @@ function ProfileNav() {
 
     const audioRef = useState(new Audio(NOTIFICATION_SOUND_PATH))[0];
     const notificationTabRef = useRef(null);
-    const notificationIconRef = useRef(null); // Added a ref for the notification icon
-
+    const notificationIconRef = useRef(null);
     // Helper to check if a notification is read by the current user
     const isNotificationRead = useCallback((notification) => {
         return notification.readBy?.includes(user?._id);
     }, [user]);
 
     // Fetch notifications using the custom useGet hook
-    const { data, isLoading: loading } = useGet(
-        `/notification/get-notifications?page=${page}&limit=20`,
-        {},
-        {},
-        { enabled: !!user?._id }
-    );
+const { data, isLoading: loading } = useGet(
+  `/notification/get-notifications?page=${page}&limit=20`,
+  {},
+  {}, 
+  { enabled: !!user?._id }
+);
 
 
     // Update state when data changes (Fixes infinite loop)
     useEffect(() => {
-        if (data?.data?.data?.notifications) {
-            const newNotifications = data.data.data.notifications;
+  if (data?.data?.data) {
+    const { notifications: newNotifications, unreadCount } = data.data.data;
 
-            // Use the functional update form of setNotifications to prevent infinite loop
-            setNotifications(prev => {
-                const existingIds = new Set(prev.map(notif => notif._id));
-                const uniqueNewNotifications = newNotifications.filter(
-                    (newNotif) => !existingIds.has(newNotif._id)
-                );
+    setNotifications(prev => {
+      const existingIds = new Set(prev.map(n => n._id));
+      const uniqueNew = newNotifications.filter(n => !existingIds.has(n._id));
+      return page === 1 ? uniqueNew : [...prev, ...uniqueNew];
+    });
 
-                // If on page 1, replace the list; otherwise, append unique new notifications
-                return page === 1 ? uniqueNewNotifications : [...prev, ...uniqueNewNotifications];
-            });
+    setHasMore(page < data.data.data.totalPages);
 
-            setHasMore(page < data.data.data.totalPages);
-        }
-    }, [data, page]);
+   
+    setNotificationCount(unreadCount > 99 ? "99+" : unreadCount);
+  }
+}, [data, page]);
 
-    // Calculate unread count based on the notifications array
-    useEffect(() => {
-        const allUnreadCount = notifications.filter(n => !isNotificationRead(n)).length;
-        setNotificationCount(allUnreadCount);
-    }, [notifications, isNotificationRead]);
 
     // Mark all notifications as read
     const markAllAsRead = async () => {
@@ -104,7 +97,7 @@ function ProfileNav() {
                 .filter((n) => !isNotificationRead(n))
                 .map((n) => n._id);
 
-            if (unreadIds.length === 0) return;
+    if (unreadIds.length === 0) return;
 
             await apiClient.post("/notification/read-notifications", {
                 notificationIds: unreadIds,
@@ -141,16 +134,16 @@ function ProfileNav() {
             });
         }
 
-        if (!socket.connected) {
-            socket.connect();
-        }
+  if (!socket.connected) {
+    socket.connect();
+  }
 
         // join user room
         socket.emit("joinRoom", user._id);
 
-        socket.on("connect", () => {
-            console.log("✅ Socket connected:", socket.id);
-        });
+  socket.on("connect", () => {
+    console.log("✅ Socket connected:", socket.id);
+  });
 
         socket.on("new-notification", (notif) => {
             audioRef.play().catch((e) => console.error("Error playing sound:", e));
@@ -174,9 +167,9 @@ function ProfileNav() {
             setNotificationCount((prev) => prev + 1);
         });
 
-        socket.on("disconnect", () => {
-            console.log("❌ Socket disconnected");
-        });
+  socket.on("disconnect", () => {
+    console.log("❌ Socket disconnected");
+  });
 
         return () => {
             socket.off("new-notification");
@@ -259,8 +252,8 @@ function ProfileNav() {
 
     return (
         <>
-            <Box />
-            <Box
+            <Box/>
+            {/* <Box
                 sx={{
                     position: 'fixed',
                     top: 0,
@@ -277,17 +270,17 @@ function ProfileNav() {
                     alignItems: 'center',
                 }}
                 className="glass-effect"
-            >
-                <Announcement limit={3} showNav={false} />
-            </Box>
+            > */}
+                
+            {/* </Box> */}
             <Box
                 sx={{
                     position: 'fixed',
-                    top: 50,
+                    top: 0,
                     left: '220px',
                     right: 0,
                     height: '70px',
-                    zIndex: 1,
+                    zIndex: 99,
                     marginBottom: '2rem',
                     background: '#fff',
                     backdropFilter: 'blur(30px)',
@@ -297,12 +290,15 @@ function ProfileNav() {
                     justifyContent: 'flex-end',
                     alignItems: 'center',
                     padding: isSmDown ? '0.5rem 1rem' : '0.75rem 2rem',
+                    paddingLeft: '0px',
                     gap: '1rem',
                 }}
                 className="glass-effect"
             >
+
+                <Announcement limit={3} showNav={false} />
                 {/* 🔔 Mode Switcher Icon */}
-                {Array.isArray(user?.access) && user.access.length > 0 && (
+                {((Array.isArray(user?.access) && user.access.length > 0) || user?.role === "superAdmin") && (
                     <IconButton
                         sx={{
                             backgroundColor: theme.palette.grey[50],
@@ -662,7 +658,7 @@ function ProfileNav() {
                     </Box>
                     <DialogContent sx={{ p: '2rem', backgroundColor: theme.palette.background.default, display: 'flex', justifyContent: 'center' }}>
                         <Grid container spacing={2} justifyContent="center" sx={{ maxWidth: '500px' }}>
-                             {user?.access?.includes("lms") && (
+                            {(user?.role === "superAdmin" || user?.access?.includes("lms")) && (
                             <Grid item xs={6}>
                                 {/* LMS URL */}
                                 {/* <Link to={BASE_LMS_URL} style={{ textDecoration: 'none' }}> */}
@@ -731,7 +727,7 @@ function ProfileNav() {
                                 {/* </Link> */}
                             </Grid>
                               )}
-                              {user?.access?.includes("hrm") && (
+                              {(user?.role === "superAdmin" || user?.access?.includes("hrm")) && (
                             <Grid item xs={6}>
                                 {/* HRM URL */}
                                 {/* <Link to={BASE_HRM_URL} style={{ textDecoration: 'none' }}> */}

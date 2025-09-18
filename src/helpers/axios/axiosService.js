@@ -56,7 +56,6 @@
 
 
 
-// src/helpers/axios/axiosService.js
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 import { server_url } from '../../utils/server';
