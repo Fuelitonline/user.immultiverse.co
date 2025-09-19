@@ -231,6 +231,7 @@ function TaskTab({ description, setDescription, file, setFile, setErrorMessage, 
     selectedDate,
     selectedDateRange
   ]);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 1 }}>
       {/* Task Description */}
@@ -425,7 +426,7 @@ function TaskTab({ description, setDescription, file, setFile, setErrorMessage, 
       <Button
         id="task-submit"
         onClick={handleSubmit}
-        disabled={taskMutation.isLoading || !file || !description.trim() || assignFor.length === 0 || taskDates.length === 0}
+        disabled={taskMutation.isLoading || !description.trim() || assignFor.length === 0 || taskDates.length === 0}
         sx={{
           display: 'none',
         }}

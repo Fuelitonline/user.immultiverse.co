@@ -104,17 +104,30 @@ function AddTaskDialog({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const normalizedSelectedDate = selectedDate && moment(selectedDate).isValid()
+  // Support three incoming shapes:
+  // 1) selectedDate is a Date (single-day click)
+  // 2) selectedDate is an object { start, end } (parent accidentally passed range via selectedDate)
+  // 3) selectedDateRange prop is provided as { start, end } (preferred)
+  const incomingRange = (selectedDate && selectedDate.start && selectedDate.end)
+    ? selectedDate
+    : selectedDateRange;
+
+  // normalized single date (ISO string) if a single Date provided
+  const normalizedSelectedDate = selectedDate && !incomingRange && moment(selectedDate).isValid()
     ? moment(selectedDate).tz('UTC').startOf('day').toISOString()
     : null;
-  const normalizedDateRange = selectedDateRange?.start && selectedDateRange?.end && moment(selectedDateRange.start).isValid() && moment(selectedDateRange.end).isValid()
+
+  // normalized date range if incomingRange exists
+  const normalizedDateRange = incomingRange && moment(incomingRange.start).isValid() && moment(incomingRange.end).isValid()
     ? {
-        start: moment(selectedDateRange.start).tz('UTC').startOf('day').toISOString(),
-        end: moment(selectedDateRange.end).tz('UTC').startOf('day').toISOString(),
-      }
+      start: moment(incomingRange.start).tz('UTC').startOf('day').toISOString(),
+      end: moment(incomingRange.end).tz('UTC').startOf('day').toISOString(),
+    }
     : null;
 
-  const queryDate = normalizedSelectedDate || normalizedDateRange?.start;
+  // Find the right date to query with, prioritizing a range if it exists
+  const queryDate = normalizedDateRange?.start || normalizedSelectedDate || null;
+
 
   console.log('AddTaskDialog - Received selectedDate:', selectedDate);
   console.log('AddTaskDialog - Received selectedDateRange:', selectedDateRange);
@@ -150,19 +163,19 @@ function AddTaskDialog({
   const tasks = Array.isArray(tasksData?.data?.data?.data) ? tasksData.data.data.data : [];
   const meetings = Array.isArray(meetingsData?.data?.data?.data)
     ? meetingsData.data.data.data.map(meeting => ({
-        ...meeting,
-        start_time_Date: meeting.meetingDate,
-        end_time_Date: moment(meeting.meetingDate).add(parseInt(meeting.meetingDuration), 'minutes').toISOString(),
-        meetingName: meeting.meetingName,
-        meetingDescription: meeting.meetingAgenda,
-        registrants: meeting.access
-      }))
+      ...meeting,
+      start_time_Date: meeting.meetingDate,
+      end_time_Date: moment(meeting.meetingDate).add(parseInt(meeting.meetingDuration), 'minutes').toISOString(),
+      meetingName: meeting.meetingName,
+      meetingDescription: meeting.meetingAgenda,
+      registrants: meeting.access
+    }))
     : [];
   const events = Array.isArray(eventsData?.data)
     ? eventsData.data
     : Array.isArray(eventsData?.data?.data)
-    ? eventsData.data.data
-    : [];
+      ? eventsData.data.data
+      : [];
 
   const pagination = {
     tasks: tasksData?.data?.pagination || {
@@ -222,8 +235,10 @@ function AddTaskDialog({
   const getEmployeeName = (employee) => {
     if (!employee) return 'Unknown';
     if (typeof employee === 'object' && employee?._id && employee?.name) return employee.name;
-    if (!employees?.data?.message?.[0]) return 'Unknown';
-    return employees.data.message[0].find((emp) => emp?._id === employee?._id)?.name || 'Unknown';
+    const employeeList = employees?.data?.message?.[0] || [];
+    console.log("employeeList", employeeList);
+    const foundEmployee = employeeList.find((emp) => emp?._id === employee);
+    return foundEmployee?.name || 'Unknown';
   };
 
   const getStatus = (date) => {
@@ -375,18 +390,25 @@ function AddTaskDialog({
     }
 
     const totalItems = type === 'tasks' ? pagination.tasks.total :
-                       type === 'meetings' ? pagination.meetings.total :
-                       pagination.events.total;
+      type === 'meetings' ? pagination.meetings.total :
+        pagination.events.total;
     const totalPages = type === 'tasks' ? pagination.tasks.totalPages :
-                       type === 'meetings' ? pagination.meetings.totalPages :
-                       pagination.events.totalPages;
+      type === 'meetings' ? pagination.meetings.totalPages :
+        pagination.events.totalPages;
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const paginatedData = safeData.slice(startIndex, endIndex);
     console.log('renderContent - Pagination:', { totalItems, totalPages, startIndex, endIndex, paginatedData });
+    console.log('testing', tasks.map((e)=>{
+      console.log(e,'dataaa')
+    }))
+
+   
+    
+    console.log(tasks, 'opo')
 
     return (
-      <Box sx={{  overflowY: 'auto', p: 1 }}>
+      <Box sx={{ overflowY: 'auto', p: 1 }}>
         {paginatedData.map((item, index) => {
           const isMeeting = type === 'meetings';
           const isEvent = type === 'events';
@@ -412,11 +434,11 @@ function AddTaskDialog({
                       justifyContent="center"
                       bgcolor={
                         isDailyWork ? 'success.light' :
-                        isMeeting ? 'info.light' : 'secondary.light'
+                          isMeeting ? 'info.light' : 'secondary.light'
                       }
                       color={
                         isDailyWork ? 'success.main' :
-                        isMeeting ? 'info.main' : 'secondary.main'
+                          isMeeting ? 'info.main' : 'secondary.main'
                       }
                     >
                       {isDailyWork ? (
@@ -432,8 +454,8 @@ function AddTaskDialog({
                         {isDailyWork
                           ? item.description || 'No Description'
                           : isMeeting
-                          ? item.meetingName || 'Unnamed Meeting'
-                          : item.title || 'Unnamed Event'}
+                            ? item.meetingName || 'Unnamed Meeting'
+                            : item.title || 'Unnamed Event'}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5} mt={0.5}>
                         <CalendarTodayIcon sx={{ fontSize: 10 }} />
@@ -442,8 +464,8 @@ function AddTaskDialog({
                             ? moment(item.startDate).tz('Asia/Kolkata').format('MMMM D, YYYY')
                             : `${moment(item.startDate).tz('Asia/Kolkata').format('MMMM D, YYYY')} - ${moment(item.endDate).tz('Asia/Kolkata').format('MMMM D, YYYY')}`
                           : isMeeting
-                          ? `${moment(item.start_time_Date).tz('Asia/Kolkata').format('MMMM D, YYYY, h:mm A')} - ${moment(item.end_time_Date).tz('Asia/Kolkata').format('h:mm A')}`
-                          : `${moment(item.start).tz('Asia/Kolkata').format('MMMM D, YYYY, h:mm A')} - ${moment(item.end).tz('Asia/Kolkata').format('h:mm A')}`}
+                            ? `${moment(item.start_time_Date).tz('Asia/Kolkata').format('MMMM D, YYYY, h:mm A')} - ${moment(item.end_time_Date).tz('Asia/Kolkata').format('h:mm A')}`
+                            : `${moment(item.start).tz('Asia/Kolkata').format('MMMM D, YYYY, h:mm A')} - ${moment(item.end).tz('Asia/Kolkata').format('h:mm A')}`}
                       </Typography>
                       {isMeeting && (
                         <Box display="flex" alignItems="center" gap={0.5} mt={0.5}>
@@ -460,29 +482,23 @@ function AddTaskDialog({
                           Type: {item.type || 'N/A'}
                         </Typography>
                       )}
-                      {isDailyWork && (
-                        <Box mt={0.5}>
-                          <Autocomplete
-                            multiple
-                            options={employeeOptions}
-                            getOptionLabel={(option) => option.name || 'Unknown'}
-                            value={assignedEmployees.map((empId) =>
-                              employeeOptions.find((emp) => emp._id === empId) || { _id: empId, name: 'Unknown' }
-                            )}
-                            renderInput={(params) => (
-                              <TextField
-                                {...params}
-                                label="Assigned To"
-                                variant="outlined"
-                                size="small"
-                                sx={{ '& .MuiInputBase-root': { fontSize: 12 } }}
-                              />
-                            )}
-                            readOnly
-                            sx={{ width: '100%', '& .MuiAutocomplete-input': { fontSize: 12 } }}
+                      <Autocomplete
+                        multiple
+                        options={[]} 
+                        getOptionLabel={(option) => option.name || 'Unknown'}
+                        value={tasks.map(task => task.assignFor)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Assigned To"
+                            variant="outlined"
+                            size="small"
+                            sx={{ '& .MuiInputBase-root': { fontSize: 12 } }}
                           />
-                        </Box>
-                      )}
+                        )}
+                        readOnly
+                        sx={{ width: '100%', '& .MuiAutocomplete-input': { fontSize: 12 } }}
+                      />
                     </Box>
                   </Box>
                   {/* <Box display="flex" gap={1}>
@@ -624,8 +640,8 @@ function AddTaskDialog({
                           {item.meetingFor?.length > 0
                             ? item.meetingFor.map((attendee) => attendee.email).join(', ')
                             : item.registrants?.length > 0
-                            ? item.registrants.map((id) => getEmployeeName(id)).join(', ')
-                            : 'None'}
+                              ? item.registrants.map((id) => getEmployeeName(id)).join(', ')
+                              : 'None'}
                         </Typography>
                         <Divider sx={{ my: 1 }} />
                         <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -723,10 +739,10 @@ function AddTaskDialog({
               {mainTab === 0
                 ? 'Tasks'
                 : mainTab === 1
-                ? 'Meetings'
-                : mainTab === 2
-                ? 'Events'
-                : 'Select an Option'}
+                  ? 'Meetings'
+                  : mainTab === 2
+                    ? 'Events'
+                    : 'Select an Option'}
             </Typography>
             {(normalizedDateRange || normalizedSelectedDate) && (
               <Box display="flex" alignItems="center" gap={0.5} mt={0.5}>
@@ -821,7 +837,7 @@ function AddTaskDialog({
           </Typography>
         )}
         {subTab === 0 && mainTab !== null && (
-          <Box sx={{  overflowY: 'auto', px: 0.5 }}>
+          <Box sx={{ overflowY: 'auto', px: 0.5 }}>
             {mainTab === 0 && (
               <TaskTab
                 description={description}

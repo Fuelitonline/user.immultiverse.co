@@ -5,14 +5,12 @@ import moment from 'moment-timezone';
 import {
   Box,
   TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
+  Autocomplete,
   Button,
   Typography,
   Alert,
   Paper,
+  Chip,
 } from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 
@@ -65,11 +63,22 @@ const theme = createTheme({
         },
       },
     },
-    MuiSelect: {
+    MuiAutocomplete: {
       styleOverrides: {
         root: {
-          backgroundColor: '#FFFFFF',
-          borderRadius: '8px',
+          '& .MuiOutlinedInput-root': {
+            backgroundColor: '#FFFFFF',
+            borderRadius: '8px',
+            '& fieldset': {
+              borderColor: '#E0E0E0',
+            },
+            '&:hover fieldset': {
+              borderColor: '#B0B0B0',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: '#3B4A54',
+            },
+          },
         },
       },
     },
@@ -90,11 +99,20 @@ const theme = createTheme({
   },
 });
 
+// Predefined event types that users can select from
+const PREDEFINED_EVENT_TYPES = [
+  'Meeting',
+  'Holiday',
+  'Training',
+  'Presentation',
+  'Vacation'
+];
+
+
 function EventTab({ selectedDate, selectedDateRange, description, setDescription, setErrorMessage, onEventAdded }) {
   const queryClient = useQueryClient();
   const [eventTitle, setEventTitle] = useState('');
   const [eventType, setEventType] = useState('');
-  const [customEventType, setCustomEventType] = useState('');
   const [eventStart, setEventStart] = useState(
     selectedDateRange?.start && moment(selectedDateRange.start).isValid()
       ? moment(selectedDateRange.start).tz('UTC').format('YYYY-MM-DDTHH:mm')
@@ -102,7 +120,7 @@ function EventTab({ selectedDate, selectedDateRange, description, setDescription
       ? moment(selectedDate).tz('UTC').format('YYYY-MM-DDTHH:mm')
       : ''
   );
-  const [eventEnd, set_WindowEnd] = useState(
+  const [eventEnd, setEventEnd] = useState(
     selectedDateRange?.end && moment(selectedDateRange.end).isValid()
       ? moment(selectedDateRange.end).tz('UTC').format('YYYY-MM-DDTHH:mm')
       : ''
@@ -137,12 +155,15 @@ function EventTab({ selectedDate, selectedDateRange, description, setDescription
   );
   const addEventMutation = usePost('/employee/event/add', {}, 'events');
 
-  const types = Array.isArray(eventTypes?.data?.data) ? eventTypes.data.data : [];
+  const apiTypes = Array.isArray(eventTypes?.data?.data) ? eventTypes.data.data : [];
   const events = Array.isArray(eventsData?.data)
     ? eventsData.data
     : Array.isArray(eventsData?.data?.data)
     ? eventsData.data.data
     : [];
+
+  // Combine predefined types with API types, removing duplicates
+  const allEventTypes = [...new Set([...PREDEFINED_EVENT_TYPES, ...apiTypes])].sort();
 
   const getDatesInRange = useCallback((start, end) => {
     if (!start || !end || !moment(start).isValid() || !moment(end).isValid()) return [];
@@ -175,7 +196,8 @@ function EventTab({ selectedDate, selectedDateRange, description, setDescription
 
   useEffect(() => {
     console.log('Event Types Data:', eventTypes);
-    console.log('Normalized Types:', types);
+    console.log('API Types:', apiTypes);
+    console.log('All Event Types:', allEventTypes);
     console.log('Event Types Loading:', eventTypesLoading);
     console.log('Event Types Error:', eventTypesError);
     console.log('Events Data:', eventsData);
@@ -188,7 +210,8 @@ function EventTab({ selectedDate, selectedDateRange, description, setDescription
     console.log('Event Dates:', eventDates);
   }, [
     eventTypes,
-    types,
+    apiTypes,
+    allEventTypes,
     eventTypesLoading,
     eventTypesError,
     eventsData,
@@ -206,12 +229,8 @@ function EventTab({ selectedDate, selectedDateRange, description, setDescription
   };
 
   const handleSubmit = useCallback(async () => {
-    if (!eventTitle.trim() || !eventType || !eventStart || !eventEnd || !description.trim()) {
+    if (!eventTitle.trim() || !eventType.trim() || !eventStart || !eventEnd || !description.trim()) {
       setErrorMessage('All event fields are required');
-      return;
-    }
-    if (eventType === 'Other' && !customEventType.trim()) {
-      setErrorMessage('Custom event type is required when "Other" is selected');
       return;
     }
     if (!isValidDate(eventStart) || !isValidDate(eventEnd)) {
@@ -235,7 +254,7 @@ function EventTab({ selectedDate, selectedDateRange, description, setDescription
         }).toISOString();
         const eventData = {
           title: eventTitle,
-          type: eventType === 'Other' ? customEventType : eventType,
+          type: eventType.trim(),
           start: startDateTime,
           end: endDateTime,
           description,
@@ -244,7 +263,6 @@ function EventTab({ selectedDate, selectedDateRange, description, setDescription
       }
       setEventTitle('');
       setEventType('');
-      setCustomEventType('');
       setEventStart('');
       setEventEnd('');
       setDescription('');
@@ -263,7 +281,6 @@ function EventTab({ selectedDate, selectedDateRange, description, setDescription
   }, [
     eventTitle,
     eventType,
-    customEventType,
     eventStart,
     eventEnd,
     description,
@@ -310,50 +327,68 @@ function EventTab({ selectedDate, selectedDateRange, description, setDescription
             </Typography>
           </Box>
 
-          {/* Event Type */}
-          <FormControl fullWidth variant="outlined" size="small">
-            <InputLabel>Event Type</InputLabel>
-            {eventTypesLoading ? (
-              <Typography variant="body2" color="text.secondary">
-                Loading event types...
-              </Typography>
-            ) : eventTypesError ? (
-              <Alert severity="error">Error loading event types</Alert>
-            ) : (
-              <Select
-                value={eventType}
-                onChange={(e) => setEventType(e.target.value)}
+          {/* Event Type - Free Style with Autocomplete */}
+          <Autocomplete
+            freeSolo
+            options={allEventTypes}
+            value={eventType}
+            onChange={(event, newValue) => {
+              setEventType(newValue || '');
+            }}
+            onInputChange={(event, newInputValue) => {
+              setEventType(newInputValue);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
                 label="Event Type"
-              >
-                <MenuItem value="">Select event type</MenuItem>
-                {types.length > 0 ? (
-                  types.map((type) => (
-                    <MenuItem key={type} value={type}>
-                      {type}
-                    </MenuItem>
-                  ))
-                ) : (
-                  <MenuItem value="" disabled>
-                    No types available
-                  </MenuItem>
-                )}
-                <MenuItem value="Other">Other</MenuItem>
-              </Select>
+                variant="outlined"
+                fullWidth
+                placeholder="Select from suggestions or type your own"
+                size="small"
+                helperText="Choose from suggestions or create your own event type"
+              />
             )}
-          </FormControl>
+            renderOption={(props, option) => (
+              <Box component="li" {...props}>
+                <Chip 
+                  label={option} 
+                  size="small" 
+                  variant="outlined"
+                  sx={{ mr: 1 }}
+                />
+                {option}
+              </Box>
+            )}
+            loading={eventTypesLoading}
+            loadingText="Loading event types..."
+            noOptionsText="Type to create a custom event type"
+            size="small"
+          />
 
-          {/* Custom Event Type */}
-          {eventType === 'Other' && (
-            <TextField
-              label="Custom Event Type"
-              variant="outlined"
-              fullWidth
-              value={customEventType}
-              onChange={(e) => setCustomEventType(e.target.value)}
-              placeholder="Enter custom event type"
-              size="small"
-            />
-          )}
+          {/* Popular Event Types Chips */}
+          <Box>
+            <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+              Popular Event Types:
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              {['Meeting', 'Workshop', 'Training', 'Client Visit', 'Team Building', 'Review'].map((type) => (
+                <Chip
+                  key={type}
+                  label={type}
+                  size="small"
+                  variant={eventType === type ? 'filled' : 'outlined'}
+                  onClick={() => setEventType(type)}
+                  sx={{
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: eventType === type ? 'primary.dark' : 'action.hover',
+                    },
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
 
           {/* Start Time */}
           <TextField
@@ -433,7 +468,10 @@ function EventTab({ selectedDate, selectedDateRange, description, setDescription
                     <Typography variant="body2">
                       {moment(event.start).tz('UTC').format('h:mm A')} - {moment(event.end).tz('UTC').format('h:mm A')}
                     </Typography>
-                    <Typography variant="body2">Type: {event.type || 'N/A'}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                      <Typography variant="body2" sx={{ mr: 1 }}>Type:</Typography>
+                      <Chip label={event.type || 'N/A'} size="small" variant="outlined" />
+                    </Box>
                   </Paper>
                 ))}
               </Box>
