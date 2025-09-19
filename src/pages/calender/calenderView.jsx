@@ -17,6 +17,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonIcon from '@mui/icons-material/Person';
 import LinkIcon from '@mui/icons-material/Link';
+import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 
 // Logo path
 const logo = "https://mutliverse-app-version.s3.ap-south-1.amazonaws.com/Multiverse/logo.png";
@@ -32,8 +33,10 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
   const [currentMonth, setCurrentMonth] = useState(moment().month() + 1);
   const [currentYear, setCurrentYear] = useState(moment().year());
   const [events, setEvents] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null);
+const [selectedDate, setSelectedDate] = useState(null);
+const [selectedDateRange, setSelectedDateRange] = useState(null);
   const [description, setDescription] = useState("");
   const [file, setFile] = useState(null);
   const [loadingState, setLoadingState] = useState(false);
@@ -61,9 +64,9 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
     {},
     { queryKey: ['meetings', user?._id, startDate, endDate] }
   );
- const { data: getDailyWorkData, isLoading: isDailyWorkLoading, error: dailyWorkError, refetch } = useGet(
+  const { data: getDailyWorkData, isLoading: isDailyWorkLoading, error: dailyWorkError, refetch } = useGet(
     '/employee/daily-work/get',
-    { employeeId: user?._id, currentMonth, currentYear, date : selectedDate },
+    { employeeId: user?._id, currentMonth, currentYear, date: selectedDate },
     {},
     { queryKey: ['dailyWork', user?._id, startDate, endDate] }
   );
@@ -87,8 +90,20 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
     const meetings = Array.isArray(getMeetingsData?.data?.data?.data) ? getMeetingsData.data.data.data : [];
     const dailyWork = Array.isArray(getDailyWorkData?.data?.data?.data) ? getDailyWorkData.data.data.data : [];
 
+    // Separate holidays from regular events
+    const regularEvents = eventsData.filter(event => event.type !== 'Holiday');
+    const holidayEvents = eventsData.filter(event => event.type === 'Holiday');
+
+    // Set holidays for day styling
+    const holidayDates = holidayEvents.map(holiday => ({
+      date: moment(holiday.start).tz('UTC').format('YYYY-MM-DD'),
+      title: holiday.title || 'Holiday',
+      description: holiday.description || 'No description'
+    }));
+    setHolidays(holidayDates);
+
     const transformedEvents = [
-      ...eventsData.map((event) => ({
+      ...regularEvents.map((event) => ({
         id: event._id,
         title: event.title || 'Unnamed Event',
         start: event.start && moment(event.start).isValid() ? moment(event.start).tz('UTC').toDate() : new Date(),
@@ -99,6 +114,19 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
         type: 'event',
         createdAt: new Date(event.createdAt || Date.now()),
         icon: EventIcon,
+      })),
+      ...holidayEvents.map((holiday) => ({
+        id: holiday._id,
+        title: holiday.title || 'Holiday',
+        start: holiday.start && moment(holiday.start).isValid() ? moment(holiday.start).tz('UTC').toDate() : new Date(),
+        end: holiday.end && moment(holiday.end).isValid() ? moment(holiday.end).tz('UTC').toDate() : new Date(), 
+        color: '#16a34a',
+        bgColor: '#dcfce7',
+        details: `${holiday.description || 'Holiday'}`,
+        type: 'Holiday',
+        createdAt: new Date(holiday.createdAt || Date.now()),
+        icon: BeachAccessIcon,
+        isHoliday: true,
       })),
       ...meetings.map((meeting) => ({
         id: meeting._id,
@@ -168,10 +196,33 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
     getTimes && getTimes(newMonth, newYear);
   };
 
-  const onSelectSlot = (slotInfo) => {
-    setSelectedDate(slotInfo.start);
-    setOpenDialog(true);
-  };
+const onSelectSlot = (slotInfo) => {
+  console.log("Selected slot (raw):", slotInfo);
+
+  let start = slotInfo.start;
+  let end = slotInfo.end;
+
+  const isStartMidnight = moment(start).startOf('day').isSame(moment(start));
+  const isEndMidnight = moment(end).startOf('day').isSame(moment(end));
+  if (isStartMidnight && isEndMidnight && moment(end).isAfter(moment(start))) {
+    end = moment(end).tz('UTC').subtract(1, 'day').toDate();
+  }
+
+  if (moment(start).isSame(end, 'day')) {
+    setSelectedDate(start);
+    setSelectedDateRange(null);
+    console.log('Selecting single date:', start);
+  } else {
+    setSelectedDate(null);
+    setSelectedDateRange({ start, end });
+    console.log('Selecting date range:', { start, end });
+  }
+
+  setOpenDialog(true);
+};
+
+
+
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
@@ -200,8 +251,14 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
     
     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
     
+    // Check if this date is a holiday
+    const dateKey = moment(date).tz('UTC').format('YYYY-MM-DD');
+    const isHoliday = holidays.some(holiday => holiday.date === dateKey);
+    
     return {
-      className: isCurrentDate
+      className: isHoliday
+        ? 'bg-green-100 border-2 border-green-300 rounded-lg holiday-cell'
+        : isCurrentDate
         ? 'bg-blue-50 border-2 border-blue-200 rounded-lg'
         : isWeekend
         ? 'bg-gray-50'
@@ -209,19 +266,39 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
     };
   };
 
-  const eventPropGetter = (event) => ({
-    style: {
-      backgroundColor: event.bgColor,
-      border: `2px solid ${event.color}`,
-      borderLeft: `4px solid ${event.color}`,
-      borderRadius: '6px',
-      color: '#374151',
-      fontSize: '12px',
-      fontWeight: '500',
-      padding: '4px 8px',
-      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    },
-  });
+  const eventPropGetter = (event) => {
+    if (event.isHoliday) {
+      return {
+        style: {
+          backgroundColor: '#16a34a',
+          border: 'none',
+          borderRadius: '6px',
+          color: 'white',
+          fontSize: '12px',
+          fontWeight: '700',
+          padding: '4px 8px',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+          textAlign: 'center',
+          width: '100%',
+          margin: '2px 0',
+        },
+      };
+    }
+    
+    return {
+      style: {
+        backgroundColor: event.bgColor,
+        border: `2px solid ${event.color}`,
+        borderLeft: `4px solid ${event.color}`,
+        borderRadius: '6px',
+        color: '#374151',
+        fontSize: '12px',
+        fontWeight: '500',
+        padding: '4px 8px',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+      },
+    };
+  };
 
   const defaultDate = useMemo(() => new Date(), []);
 
@@ -241,6 +318,7 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
     { type: 'Event', color: '#059669', bgColor: '#ecfdf5', icon: EventIcon },
     { type: 'Meeting', color: '#7c3aed', bgColor: '#f3e8ff', icon: VideocamIcon },
     { type: 'Task', color: '#dc2626', bgColor: '#fef2f2', icon: AssignmentIcon },
+    { type: 'Holiday', color: '#16a34a', bgColor: '#dcfce7', icon: BeachAccessIcon },
   ];
 
   const getErrorMessage = (error) => {
@@ -262,6 +340,20 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
 
   const EventComponent = ({ event }) => {
     const IconComponent = event.icon;
+    
+    if (event.isHoliday) {
+      return (
+        <Tooltip title={event.details} arrow>
+          <div className="flex items-center justify-center text-green font-bold text-xs h-full">
+            <BeachAccessIcon style={{ fontSize: '14px', marginRight: '4px', color:'black' }} color='green'/>
+            <span style={{
+                color: 'green',
+            }}>{event.title.toUpperCase()}</span>
+          </div>
+        </Tooltip>
+      );
+    }
+    
     return (
       <div className="flex items-center gap-2 text-xs">
         <IconComponent style={{ fontSize: '14px', color: event.color }} />
@@ -278,6 +370,30 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
           border-radius: 12px;
           overflow: hidden;
           border: 1px solid #e5e7eb;
+        }
+
+        .holiday-cell {
+          position: relative;
+        }
+
+        .holiday-cell::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+          opacity: 0.1;
+          pointer-events: none;
+          z-index: -1;
+        }
+
+        .holiday-cell .rbc-date-cell a {
+          background: #16a34a !important;
+          color: white !important;
+          border-radius: 6px;
+          font-weight: 700;
         }
 
         .rbc-toolbar {
@@ -418,6 +534,16 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
           border-radius: 4px !important;
           font-weight: 500 !important;
         }
+
+        .holiday-label {
+          font-size: 11px;
+          font-weight: 700;
+          padding: 4px 8px;
+          border-radius: 4px;
+          background-color: #16a34a;
+          color: white;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
       `}</style>
 
       {(isEventsLoading || isMeetingsLoading || isDailyWorkLoading) && (
@@ -465,8 +591,6 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
         
         {/* Header Controls */}
         <div className="flex items-center justify-between mb-1 relative z-10">
-          
-          
           <div className="flex items-center gap-3">
             <div className="relative">
               <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -522,7 +646,7 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
             onNavigate={handleNavigate}
             dayPropGetter={dayPropGetter}
             onSelectSlot={onSelectSlot}
-            selectable="true"
+            selectable={true} 
             views={['month', 'week', 'day', 'agenda']}
             defaultView="month"
             style={{
@@ -599,30 +723,39 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
                   </div>
                 ),
               },
-              dateCellWrapper: ({ children, value }) => {
-                const dateKey = moment(value).tz('UTC').format('YYYY-MM-DD');
-                const eventsOnDate = eventsByDate[dateKey] || [];
-                return (
-                  <div className="relative h-full">
-                    {children}
-                    {eventsOnDate.length > 3 && (
-                      <div className="absolute bottom-1 right-1">
-                        <Badge
-                          badgeContent={`+${eventsOnDate.length - 3}`}
-                          color="secondary"
-                          sx={{
-                            '& .MuiBadge-badge': {
-                              fontSize: '9px',
-                              height: '16px',
-                              minWidth: '16px',
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              },
+              // dateCellWrapper: ({ children, value }) => {
+              //   const dateKey = moment(value).tz('UTC').format('YYYY-MM-DD');
+              //   const eventsOnDate = eventsByDate[dateKey] || [];
+              //   const holiday = holidays.find(holiday => holiday.date === dateKey);
+                
+              //   return (
+              //     <div className="relative h-full">
+              //       {children}
+              //       {holiday && (
+              //         <Tooltip title={holiday.description} arrow>
+              //           <div className="absolute top-2 left-2 holiday-label z-10">
+              //             {holiday.title.toUpperCase()}
+              //           </div>
+              //         </Tooltip>
+              //       )}
+              //       {eventsOnDate.length > 3 && (
+              //         <div className="absolute bottom-1 right-1">
+              //           <Badge
+              //             badgeContent={`+${eventsOnDate.length - 3}`}
+              //             color="secondary"
+              //             sx={{
+              //               '& .MuiBadge-badge': {
+              //                 fontSize: '9px',
+              //                 height: '16px',
+              //                 minWidth: '16px',
+              //               }
+              //             }}
+              //           />
+              //         </div>
+              //       )}
+              //     </div>
+              //   );
+              // },
             }}
           />
         </div>
@@ -631,6 +764,7 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
           open={openDialog}
           onClose={handleCloseDialog}
           selectedDate={selectedDate}
+          selectedDateRange={selectedDateRange}
           description={description}
           setDescription={setDescription}
           file={file}
@@ -643,161 +777,6 @@ function CalendarActions({ size, getTimes, getEmployeeName }) {
           refetch={refetch}
           handleDelete={handleDelete}
         />
-      </div>
-
-      {/* Enhanced Legend */}
-      {/* <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-semibold text-gray-800">Event Types</h4>
-          <span className="text-xs text-gray-500">Click to filter</span>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          {legendItems.map((item) => {
-            const IconComponent = item.icon;
-            return (
-              <button
-                key={item.type}
-                onClick={() => setFilterType(item.type.toLowerCase())}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200 ${
-                  filterType === item.type.toLowerCase() 
-                    ? 'border-gray-400 shadow-sm' 
-                    : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                }`}
-                style={{
-                  backgroundColor: filterType === item.type.toLowerCase() ? item.bgColor : 'white',
-                }}
-              >
-                <IconComponent style={{ fontSize: '16px', color: item.color }} />
-                <span className="text-sm font-medium text-gray-700">{item.type}</span>
-                <Badge 
-                  badgeContent={events.filter(e => e.type === item.type.toLowerCase()).length} 
-                  color="default"
-                  sx={{
-                    '& .MuiBadge-badge': {
-                      fontSize: '10px',
-                      height: '16px',
-                      minWidth: '16px',
-                      backgroundColor: item.color,
-                      color: 'white',
-                    }
-                  }}
-                />
-              </button>
-            );
-          })}
-          <button
-            onClick={() => setFilterType(null)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200 ${
-              filterType === null 
-                ? 'border-blue-400 bg-blue-50 shadow-sm' 
-                : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-            }`}
-          >
-            <FilterListIcon style={{ fontSize: '16px', color: '#3b82f6' }} />
-            <span className="text-sm font-medium text-gray-700">All Events</span>
-            <Badge 
-              badgeContent={events.length} 
-              color="primary"
-              sx={{
-                '& .MuiBadge-badge': {
-                  fontSize: '10px',
-                  height: '16px',
-                  minWidth: '16px',
-                }
-              }}
-            />
-          </button>
-        </div>
-      </div> */}
-    </div>
-  );
-}
-
-function DateTooltip({ events, getEmployeeName }) {
-  return (
-    <div className="p-4 max-w-sm bg-white rounded-xl shadow-xl border border-gray-200 max-h-96 overflow-y-auto">
-      <div className="space-y-4">
-        {events.map((event, index) => {
-          const IconComponent = event.icon;
-          return (
-            <div key={`${event.id}-${event.type}-${index}`} className="border-b border-gray-100 pb-3 last:border-b-0 last:pb-0">
-              <div className="flex items-start gap-3">
-                <div 
-                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ backgroundColor: event.bgColor }}
-                >
-                  <IconComponent style={{ fontSize: '16px', color: event.color }} />
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <h4 className="font-semibold text-gray-900 text-sm truncate">{event.title}</h4>
-                    <Chip 
-                      label={event.type} 
-                      size="small" 
-                      style={{ 
-                        backgroundColor: event.bgColor, 
-                        color: event.color,
-                        fontSize: '9px',
-                        height: '18px'
-                      }} 
-                    />
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
-                    <AccessTimeIcon style={{ fontSize: '12px' }} />
-                    <span>
-                      {moment(event.start).tz('Asia/Kolkata').format('h:mm A')} - {' '}
-                      {moment(event.end).tz('Asia/Kolkata').format('h:mm A')}
-                    </span>
-                    {event.duration && (
-                      <span className="text-gray-500">({event.duration} min)</span>
-                    )}
-                  </div>
-                  
-                  <p className="text-gray-700 text-xs mb-2 line-clamp-2">{event.details}</p>
-                  
-                  {event.type === 'meeting' && (
-                    <div className="space-y-1">
-                      {event.host && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
-                          <PersonIcon style={{ fontSize: '12px' }} />
-                          <span>Host: {event.host}</span>
-                        </div>
-                      )}
-                      {event.by && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
-                          <span>By: {event.by}</span>
-                        </div>
-                      )}
-                      {event.for && Array.isArray(event.for) && event.for.length > 0 && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
-                          <span>For: {event.for.join(', ')}</span>
-                        </div>
-                      )}
-                      {event.link && (
-                        <a
-                          href={event.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                        >
-                          <LinkIcon style={{ fontSize: '12px' }} />
-                          Join Meeting
-                        </a>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
-                    <CalendarToday style={{ fontSize: '10px' }} />
-                    <span>Created: {moment(event.createdAt).tz('Asia/Kolkata').format('MMM D, YYYY')}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );
