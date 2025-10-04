@@ -202,23 +202,37 @@ export const AuthProvider = ({ children }) => {
 
   // 🚨 Auto redirect if no portal access
   useEffect(() => {
-    if (loading) return;
+  if (loading) return;
 
-    if (location.pathname === "/login" || location.pathname === "/register") {
-      return;
-    }
+  if (location.pathname === "/login" || location.pathname === "/register") {
+    return;
+  }
 
-    if (user) {
-      const redirectPortal = checkPortalAccess(user);
-      if (redirectPortal === "user") {
+  if (user) {
+    const redirectPortal = checkPortalAccess(user);
+
+    if (redirectPortal === "user") {
+      const currentHost = window.location.hostname;
+      const targetHost =
+        currentHost === "localhost" || currentHost === "127.0.0.1"
+          ? new URL(ALLOWED_PORTALS.user.local).hostname
+          : new URL(ALLOWED_PORTALS.user.prod).hostname;
+
+      if (currentHost !== targetHost) {
         window.location.href =
-          window.location.hostname === "localhost" ||
-            window.location.hostname === "127.0.0.1"
+          currentHost === "localhost" || currentHost === "127.0.0.1"
             ? ALLOWED_PORTALS.user.local
             : ALLOWED_PORTALS.user.prod;
       }
     }
-  }, [user, token, loading]);
+
+    // Optional: handle logout redirect similarly
+    if (redirectPortal === "logout") {
+      logout();
+    }
+  }
+}, [user, token, loading]);
+
 
 
   return (
