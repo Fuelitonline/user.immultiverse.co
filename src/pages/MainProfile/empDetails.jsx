@@ -31,6 +31,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import BadgeIcon from '@mui/icons-material/Badge';
 import PersonIcon from '@mui/icons-material/Person';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import BasicDetail from '../MainDashboard/basicDetail'; // Adjust path as needed
 import { useGet, usePost } from '../../hooks/useApi';
 import { useAuth } from '../../middlewares/auth';
@@ -130,7 +131,26 @@ function EmpDetails() {
 
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 3, p: 0, fontFamily: "'Poppins', sans-serif", justifyContent: 'center' }}>
-      {/* Single Card with Sidebar on Left */}
+      {/* Upper Section: Employee Details */}
+      <Paper
+        elevation={4}
+        sx={{
+          borderRadius: '20px',
+          overflow: 'hidden',
+          backgroundColor: '#ffffff',
+          border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+          boxShadow: `0 4px 12px ${alpha(theme.palette.grey[400], 0.1)}`,
+          transition: 'all 0.3s ease-in-out',
+          '&:hover': {
+            boxShadow: `0 6px 16px ${alpha(theme.palette.grey[500], 0.2)}`,
+          },
+          p: 3,
+        }}
+      >
+        <BasicDetail empDetails={empDetails} />
+      </Paper>
+
+      {/* Lower Section: Sidebar + Dynamic Content */}
       <Paper
         elevation={4}
         sx={{
@@ -146,19 +166,19 @@ function EmpDetails() {
           display: 'flex',
           flexDirection: 'row',
           height: 'fit-content',
+          minHeight: '400px',
+          position: 'relative',
         }}
       >
         {/* Sidebar with Icons and Names */}
         <Box
           p={3}
           sx={{
-            flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'center',
+            justifyContent: 'flex-start', // Top se start karne ke liye
             alignItems: 'center',
             gap: 2,
-            background: '#AABDAD',
             borderColor: 'rgba(30, 58, 138, 0.3)',
             minWidth: '150px',
             textTransform: 'uppercase',
@@ -168,6 +188,7 @@ function EmpDetails() {
             { title: 'Basic Info', icon: <BadgeIcon />, section: 'basic' },
             { title: 'Personal Info', icon: <PersonIcon />, section: 'personal' },
             { title: 'Bank Info', icon: <AccountBalanceIcon />, section: 'bank' },
+            { title: 'Salary Info', icon: <AttachMoneyIcon />, section: 'salary' },
           ].map((item) => (
             <Tooltip title={item.title} key={item.section}>
               <Box
@@ -179,11 +200,8 @@ function EmpDetails() {
                   padding: '5px 9px',
                   borderRadius: '8px',
                   cursor: 'pointer',
-                  backgroundColor: activeSection === item.section ? '#648373' : 'transparent',
+                  backgroundColor: activeSection === item.section ? 'var(--background-bg-2)' : 'transparent',
                   transition: 'background-color 0.2s ease',
-                  '&:hover': {
-                    backgroundColor: alpha('#053E0E', 0.2),
-                  },
                 }}
                 onClick={() => setActiveSection(item.section)}
               >
@@ -202,7 +220,7 @@ function EmpDetails() {
                 >
                   <IconButton
                     sx={{
-                      color: activeSection === item.section ? '#fff' : alpha('#fff', 0.7),
+                      color: activeSection === item.section ? alpha('#fff', 0.7) : 'rgb(176, 176, 176)',
                       p: 1,
                     }}
                   >
@@ -213,7 +231,7 @@ function EmpDetails() {
                   variant="caption"
                   sx={{
                     fontWeight: 500,
-                    color: activeSection === item.section ? '#fff' : alpha('#fff', 0.9),
+                    color: activeSection === item.section ? alpha('#fff', 0.9) : 'rgb(176, 176, 176)',
                     fontSize: 14,
                   }}
                 >
@@ -227,222 +245,13 @@ function EmpDetails() {
         {/* Vertical Divider */}
         <Divider orientation="vertical" flexItem sx={{ mx: 0 }} />
 
-        {/* Employee Details Section */}
-        <Box p={3} sx={{ flex: 3, position: 'relative' }}>
-          <Grid container spacing={2} alignItems="center">
-            {/* Avatar Section */}
-            <Grid item xs={12} sm={3} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <Box
-                sx={{
-                  position: 'relative',
-                  mb: 2,
-                  p: 1,
-                  borderRadius: '50%',
-                  background: alpha(theme.palette.primary.light, 0.2),
-                }}
-              >
-                <Avatar
-                  sx={{
-                    width: 80,
-                    height: 80,
-                    backgroundColor: theme.palette.primary.main,
-                    color: '#fff',
-                    fontSize: '2.5rem',
-                    fontWeight: 'bold',
-                  }}
-                  src={avatar}
-                >
-                  {empDetails.name?.charAt(0)?.toUpperCase() || 'N/A'}
-                </Avatar>
-                <Tooltip title="Upload photo">
-                  <IconButton
-                    component="label"
-                    size="small"
-                    sx={{
-                      position: 'absolute',
-                      bottom: 0,
-                      right: 0,
-                      backgroundColor: theme.palette.primary.main,
-                      color: '#fff',
-                      borderRadius: '50%',
-                      width: 28,
-                      height: 28,
-                      '&:hover': {
-                        backgroundColor: theme.palette.primary.dark,
-                      },
-                    }}
-                  >
-                    <input type="file" hidden accept="image/*" onChange={handleAvatarChange} />
-                    {isEdit ? <UploadIcon fontSize="small" /> : <EditIcon fontSize="small" />}
-                  </IconButton>
-                </Tooltip>
-              </Box>
-              <Chip
-                label={empDetails.status?.toUpperCase() || 'N/A'}
-                sx={{
-                  fontWeight: 500,
-                  color: '#fff',
-                  backgroundColor: getStatusColor(empDetails.status),
-                  borderRadius: '6px',
-                }}
-                size="small"
-              />
-            </Grid>
-
-            {/* Details Section */}
-            <Grid item xs={12} sm={9}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                  {empDetails.name || 'N/A'}
-                </Typography>
-                {(user.role === 'superAdmin' || user.role === 'Admin' || user.role === 'Manager' || user._id === empDetails._id) && (
-                  <Tooltip title="Edit details">
-                    <IconButton
-                      onClick={handleEditClick}
-                      size="small"
-                      sx={{
-                        color: theme.palette.primary.main,
-                        backgroundColor: theme.palette.background.paper,
-                        border: `2px solid ${theme.palette.primary.main}`,
-                        borderRadius: '50%',
-                        width: 32,
-                        height: 32,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        '&:hover': {
-                          backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                        },
-                      }}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Box>
-
-              <Grid container spacing={1}>
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-                      <AdminPanelSettingsIcon sx={{ color: theme.palette.text.secondary, mr: 1, fontSize: 18 }} />
-                      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Role
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {empDetails.role || 'N/A'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <WorkIcon sx={{ color: theme.palette.text.secondary, mr: 1, fontSize: 18 }} />
-                      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Position
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {empDetails.position || 'N/A'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                </Grid>
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <EmailIcon sx={{ color: theme.palette.text.secondary, mr: 1, fontSize: 18 }} />
-                    <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Email
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {empDetails.email || 'N/A'}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', mb: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <PhoneIcon sx={{ color: theme.palette.text.secondary, mr: 1, fontSize: 18 }} />
-                      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Phone
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {empDetails.phone || 'N/A'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: "center" }}>
-                      <BusinessIcon sx={{ color: theme.palette.text.secondary, mr: 1, fontSize: 18 }} />
-                      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Company
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {empDetails.companyName || 'N/A'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                </Grid>
-              </Grid>
-
-              {/* Social Media Links */}
-              <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                {empDetails.socialMedia?.twitter && (
-                  <Tooltip title="Twitter">
-                    <IconButton
-                      component="a"
-                      href={empDetails.socialMedia.twitter}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      size="small"
-                      sx={{
-                        color: theme.palette.mode === 'dark' ? '#fff' : '#000',
-                        backgroundColor: theme.palette.mode === 'dark' ? alpha('#000', 0.2) : alpha('#f5f5f5', 0.8),
-                        '&:hover': {
-                          backgroundColor: theme.palette.mode === 'dark' ? alpha('#000', 0.4) : alpha('#e0e0e0', 0.8),
-                        },
-                      }}
-                    >
-                      <XIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                {empDetails.socialMedia?.linkedin && (
-                  <Tooltip title="LinkedIn">
-                    <IconButton
-                      component="a"
-                      href={empDetails.socialMedia.linkedin}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      size="small"
-                      sx={{
-                        color: '#0a66c2',
-                        backgroundColor: alpha('#0a66c2', 0.1),
-                        '&:hover': {
-                          backgroundColor: alpha('#0a66c2', 0.2),
-                        },
-                      }}
-                    >
-                      <LinkedInIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Box>
-            </Grid>
-          </Grid>
+        {/* Right Side: Dynamic Content (no details) */}
+        <Box sx={{ flex: 3, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          <BasicDetail empDetails={empDetails} activeSection={activeSection} showDetails={false} showTitle={true} />
         </Box>
       </Paper>
 
-      {/* Dynamic Section using BasicDetail */}
-      <Box sx={{ mt: 2 }}>
-        <BasicDetail empDetails={empDetails} activeSection={activeSection} />
-      </Box>
-
-      {/* Edit Modal */}
+      {/* Edit Modal - Same rahega, but handleEditClick ko BasicDetail mein move kiya gaya hai, yeh ab unused, remove if needed */}
       <Dialog
         open={openModal}
         onClose={handleCloseModal}

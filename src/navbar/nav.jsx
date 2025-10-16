@@ -25,7 +25,9 @@ import {
   CheckCircle,
   Error,
   Payment,
-  LocalAtm
+  LocalAtm,
+  LogoutTwoTone,
+  Login
 } from '@mui/icons-material';
 import { styled } from '@mui/system';
 import { useAuth } from '../middlewares/auth';
@@ -112,29 +114,30 @@ const Navbar = () => {
   const handleSnackbarClose = () => setSnackbarOpen(false);
 
   const NavbarContainer = styled(motion.div)(({ theme }) => ({
-    width: '220px',
+    width: '220px', // Fixed width for always expanded state
     borderRight: `1px solid ${theme.palette.divider}`,
     height: '100vh',
     position: 'sticky',
     top: 0,
     display: 'flex',
     flexDirection: 'column',
+    boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
     transition: 'background 0.3s ease, backdrop-filter 0.3s ease',
     overflow: 'hidden',
     backdropFilter: 'blur(10px)',
     WebkitBackdropFilter: 'blur(10px)',
-    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(30, 30, 47, 0.9)' : '#AABDAD',
+    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(30, 30, 47, 0.9)' : 'rgba(255, 255, 255, 0.9)',
     borderColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
   }));
 
   const ListItemStyled = styled(motion(ListItem))(({ theme, active }) => ({
     borderRadius: '8px',
-    margin: '1px 20px',
-    padding: '6px',
-    background: active ? '#053E0E' : 'transparent',
-    color: '#ffffff',
+    margin: '2px 20px',
+    padding: '2.5px',
+    background: active ? theme.palette.primary.main : 'transparent',
+    color: active ? theme.palette.primary.contrastText : theme.palette.text.secondary,
     '&:hover': {
-      background: active ? '#034d0a' : 'rgba(255, 255, 255, 0.1)',
+      background: active ? theme.palette.primary.dark : 'rgba(200, 200, 200, 0.1)',
     },
     transition: 'all 0.2s ease',
   }));
@@ -153,9 +156,9 @@ const Navbar = () => {
   const SectionHeader = styled(Typography)(({ theme }) => ({
     fontSize: '14px',
     fontWeight: 600,
-    color: '#264c3d',
+    color: theme.palette.text.primary,
     padding: '5px 9px',
-    marginTop: '16px',
+    marginTop: '16px', // Added for line spacing before each section
     textTransform: 'uppercase',
   }));
 
@@ -211,7 +214,7 @@ const Navbar = () => {
                   <IconContainer>
                     {React.cloneElement(route.icon, {
                       sx: {
-                        color: selectedIndex === index ? '#ffffff' : '#FFFFFF',
+                        color: selectedIndex === index ? '#ffffff' : 'rgb(176, 176, 176)',
                       },
                     })}
                   </IconContainer>
@@ -220,7 +223,7 @@ const Navbar = () => {
                     sx={{
                       ml: 2,
                       '& .MuiListItemText-primary': {
-                        color: selectedIndex === index ? '#ffffff' : '#ffffff',
+                        color: selectedIndex === index ? '#ffffff' : 'rgb(176, 176, 176)',
                         fontSize: '0.9rem',
                         whiteSpace: 'normal',
                         overflow: 'hidden',
@@ -248,7 +251,7 @@ const Navbar = () => {
                   <IconContainer>
                     {React.cloneElement(route.icon, {
                       sx: {
-                        color: selectedIndex === index ? '#ffffff' : '#FFFFFF',
+                        color: selectedIndex === index ? '#ffffff' : 'rgb(176, 176, 176)',
                       },
                     })}
                   </IconContainer>
@@ -257,7 +260,7 @@ const Navbar = () => {
                     sx={{
                       ml: 2,
                       '& .MuiListItemText-primary': {
-                        color: selectedIndex === index ? '#ffffff' : '#ffffff',
+                        color: selectedIndex === index ? '#ffffff' : 'rgb(176, 176, 176)',
                         fontSize: '0.9rem',
                         whiteSpace: 'normal',
                         overflow: 'hidden',
@@ -270,7 +273,6 @@ const Navbar = () => {
             );
           })}
 
-          <SectionHeader>SUPPORT</SectionHeader>
           <Grid
             container
             justifyContent="center"
@@ -289,9 +291,9 @@ const Navbar = () => {
               startIcon={<ChatBubble />}
               sx={{
                 textTransform: 'none',
-                color: '#ffffff',
+                color: 'Black',
                 mt: 1,
-                '&:hover': { color: '#e0e0e0' },
+                '&:hover': { color: 'rgb(176, 176, 176)' },
               }}
             >
               Support
@@ -318,6 +320,47 @@ const Navbar = () => {
                 {loading ? <CircularProgress size={20} color="inherit" /> : 'Create IP'}
               </Button>
             </Grid>
+          )}
+        </Grid>
+
+        <Grid
+          container
+          justifyContent="center"
+          alignItems="center"
+          sx={{ padding: '5px', minHeight: '50px', position: 'absolute', bottom: 4, width: '100%' }}
+        >
+          {user ? (
+            <Button
+              variant="outlined"
+              onClick={logout}
+              startIcon={<LogoutTwoTone />}
+              sx={{
+                borderRadius: '20px',
+                textTransform: 'none',
+                minWidth: '150px',
+                borderColor: theme.palette.divider,
+                background: 'red',
+                color: 'white'
+              }}
+            >
+              Logout
+            </Button>
+          ) : (
+            <Link to="/login" style={{ textDecoration: 'none' }}>
+              <Button
+                variant="outlined"
+                startIcon={<Login />}
+                sx={{
+                  borderRadius: '20px',
+                  textTransform: 'none',
+                  minWidth: '150px',
+                  background: 'var(--background-bg-2)',
+                  color: 'white',
+                }}
+              >
+                Login
+              </Button>
+            </Link>
           )}
         </Grid>
 
@@ -351,4 +394,4 @@ const Navbar = () => {
   return <nav>{drawer}</nav>;
 };
 
-export default Navbar;
+export default Navbar;                              

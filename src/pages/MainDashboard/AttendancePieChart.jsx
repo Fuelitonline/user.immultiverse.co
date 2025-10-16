@@ -1,174 +1,259 @@
-import React from 'react';
-import { Card, Typography, useTheme } from '@mui/material';
-import ReactApexChart from 'react-apexcharts';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo, useState } from "react";
+import { Paper, Typography, useTheme, Box } from "@mui/material";
+import { DateTime } from "luxon";
+import { useGet } from "../../hooks/useApi";
+import { useAuth } from "../../middlewares/auth";
+import { useNavigate } from "react-router-dom";
 
 const AttendanceDonutChart = () => {
   const theme = useTheme();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  const staticAttendanceData = [
-    { date: '01-05', status: 'present' }, { date: '02-05', status: 'present' },
-    { date: '03-05', status: 'absent' }, { date: '04-05', status: 'present' },
-    { date: '05-05', status: 'present' }, { date: '06-05', status: 'absent' },
-    { date: '07-05', status: 'present' }, { date: '08-05', status: 'present' },
-    { date: '09-05', status: 'present' }, { date: '10-05', status: 'absent' },
-    { date: '11-05', status: 'present' }, { date: '12-05', status: 'present' },
-    { date: '13-05', status: 'present' }, { date: '14-05', status: 'present' },
-    { date: '15-05', status: 'absent' }, { date: '16-05', status: 'present' },
-    { date: '17-05', status: 'present' }, { date: '18-05', status: 'present' },
-    { date: '19-05', status: 'absent' }, { date: '20-05', status: 'present' },
-    { date: '21-05', status: 'present' }, { date: '22-05', status: 'present' },
-    { date: '23-05', status: 'present' }, { date: '24-05', status: 'absent' },
-    { date: '25-05', status: 'present' }, { date: '26-05', status: 'present' },
-    { date: '27-05', status: 'present' }, { date: '28-05', status: 'present' },
-    { date: '29-05', status: 'present' }, { date: '30-05', status: 'absent' },
-  ];
+  const [selectedMonth, setSelectedMonth] = useState(DateTime.now().minus({ months: 1 }).month);
+  const [selectedYear, setSelectedYear] = useState(DateTime.now().minus({ months: 1 }).year);
 
-  const attendanceCounts = staticAttendanceData.reduce(
-    (acc, record) => {
-      record.status === 'present' ? acc.present++ : acc.absent++;
-      return acc;
-    },
-    { present: 0, absent: 0 }
+  const id = user?._id || "";
+
+  // Calculate date range for selected month
+  const startDate = DateTime.fromObject({ year: selectedYear, month: selectedMonth, day: 1 }).toISODate();
+  const endDate = DateTime.fromObject({ year: selectedYear, month: selectedMonth }).endOf("month").toISODate();
+
+  // Total days in the selected month
+  const totalDaysInMonth = DateTime.fromObject({ year: selectedYear, month: selectedMonth }).daysInMonth;
+
+  // Fetch data from API
+  const { data: dailyRecords } = useGet(
+    "employee/work-tracking/daily-records",
+    { userId: id, startDate, endDate },
+    { enabled: !!id }
   );
 
+  const { data: policyData } = useGet("company/policy/attendece-get", { employeeId: id }, { enabled: !!id });
+
+  const { data: leaves } = useGet('employee/leave/get-by-id', { employeeId: id }, { enabled: !!id });
+
+  // FIX: Safely extract with defaults (prevents undefined access)
+  const workingHours = policyData?.data?.data?.workingHours || 8;
+  const halfDayThreshold = workingHours * 0.5;
+  const workingDays = policyData?.data?.data?.workingDays || {};
+
+  // Extract records safely
+  const records = dailyRecords?.data?.data?.records || [];
+  const leaveRequests = leaves?.data?.data?.leaveRequests || [];
+
+  // Calculate attendance (Present = worked any time >0 on working days, or leave, or sandwich; Absent = working days with no work, no leave, not sandwich)
+  const attendanceCounts = useMemo(() => {
+    // FIX: Use the safely extracted values
+    let present = 0;
+    let totalWorkingDays = 0;
+    const potentialAbsent = new Set();
+
+    // Filter leave requests for the current month
+    const monthStartDt = DateTime.fromObject({ year: selectedYear, month: selectedMonth });
+    const leaveRequestsInMonth = leaveRequests.filter((leave) => {
+      if (!leave?.date || !["Approved", "Pending"].includes(leave.status)) return false;
+      const leaveDt = DateTime.fromISO(leave.date);
+      return leaveDt.hasSame(monthStartDt, 'month');
+    });
+
+    const monthStart = DateTime.fromObject({ year: selectedYear, month: selectedMonth, day: 1 });
+
+    // First pass: count total working days, present (work or leave), and collect potential absents
+    for (let day = 1; day <= totalDaysInMonth; day++) {
+      const dt = monthStart.plus({ days: day - 1 });
+      const weekday = dt.weekday; // 1=Mon ... 7=Sun
+      const momentDay = weekday === 7 ? 0 : weekday - 1; // Map to 0=Sun ... 6=Sat
+      const isWorkingDay = workingDays[momentDay] ?? true;
+
+      if (isWorkingDay) {
+        totalWorkingDays++;
+
+        const dateStr = dt.toFormat('yyyy-MM-dd');
+
+        // Check if leave
+        const hasLeave = leaveRequestsInMonth.some((leave) => {
+          const leaveDt = DateTime.fromISO(leave.date);
+          return leaveDt.toFormat('yyyy-MM-dd') === dateStr;
+        });
+
+        if (hasLeave) {
+          present++;
+          continue;
+        }
+
+        // Check if record with any working time >0
+        const record = records.find((r) => r.day === dateStr);
+        const hasWork = record && record.totalWorkingTime > 0;
+
+        if (hasWork) {
+          present++;
+          continue;
+        }
+
+        // Potential absent
+        potentialAbsent.add(dateStr);
+      }
+    }
+
+    // Get non-working day numbers (0-6)
+    const nonWorkingDayNums = [];
+    for (let d = 0; d < 7; d++) {
+      if (!(workingDays[d] ?? true)) {
+        nonWorkingDayNums.push(d);
+      }
+    }
+
+    // Sandwich leave logic
+    const sandwichDates = new Set();
+    nonWorkingDayNums.forEach((nonWorkingDay) => {
+      for (let day = 1; day <= totalDaysInMonth; day++) {
+        const dt = monthStart.plus({ days: day - 1 });
+        const weekday = dt.weekday;
+        const mDay = weekday === 7 ? 0 : weekday - 1;
+        if (mDay === nonWorkingDay) {
+          const nonWorkingDateStr = dt.toFormat('yyyy-MM-dd');
+          const dayBefore = dt.minus({ days: 1 });
+          const dayAfter = dt.plus({ days: 1 });
+          const beforeStr = dayBefore.toFormat('yyyy-MM-dd');
+          const afterStr = dayAfter.toFormat('yyyy-MM-dd');
+
+          // Only consider if before and after are in the same month (potentialAbsent only has this month)
+          if (potentialAbsent.has(beforeStr) && potentialAbsent.has(afterStr)) {
+            sandwichDates.add(nonWorkingDateStr);
+            sandwichDates.add(beforeStr);
+            sandwichDates.add(afterStr);
+          }
+        }
+      }
+    });
+
+    // Count turned-to-sandwich working days (only the before/after which were potential absents)
+    const turnedToSandwich = [...sandwichDates].filter((date) => potentialAbsent.has(date)).length;
+
+    // Final counts
+    const finalPresent = present + turnedToSandwich;
+    const finalAbsent = potentialAbsent.size - turnedToSandwich;
+
+    return { present: finalPresent, absent: finalAbsent };
+  }, [records, leaveRequests, workingHours, workingDays, selectedYear, selectedMonth, totalDaysInMonth]);
+
+  const totalDays = attendanceCounts.present + attendanceCounts.absent;
+
   const colors = {
-    Present: '#4CAF50', // Soft Green for Present
-    Absent: '#FF7043', // Soft Coral for Absent
-    Remaining: '#8fcfb3', // Light Red for consistency with Chart component
+    Present: "#10b981", // Match first code's attended green
+    Absent: "#ef4444", // Match first code's absent red
   };
 
-  const chartOptions = {
-    chart: {
-      type: 'donut',
-      toolbar: {
-        show: false,
-      },
-      animations: {
-        enabled: true,
-        easing: 'easeinout',
-        speed: 800,
-        animateGradients: true,
-      },
-    },
-    colors: [colors.Present, colors.Absent],
-    labels: ['Present', 'Absent'],
-    plotOptions: {
-      pie: {
-        donut: {
-          size: '10%',
-          background: 'transparent',
-        },
-      },
-    },
-    dataLabels: {
-      enabled: false,
-    },
-    tooltip: {
-      enabled: true,
-      followCursor: true,
-      offsetX: 10,
-      theme: 'dark',
-    },
-    stroke: {
-      width: 0,
-      colors: ['grey'],
-    },
-    legend: {
-      show: true,
-      position: 'bottom',
-      horizontalAlign: 'center',
-      labels: {
-        colors: theme.palette.text.primary,
-        fontSize: '14px',
-        fontFamily: 'Arial, sans-serif',
-      },
-      markers: {
-        width: 10,
-        height: 10,
-        radius: 0,
-        offsetX: -10,
-      },
-      offsetX: 0,
-      offsetY: 0,
-    },
-    dropShadow: {
-      enabled: true,
-      top: 5,
-      left: 5,
-      blur: 4,
-      opacity: 0.2,
-    },
-    
+  const presentPercentage = totalDays > 0 ? attendanceCounts.present / totalDays : 0;
+  const presentDegrees = presentPercentage * 360;
+
+  const chartContainerStyle = {
+    width: "120px",
+    height: "120px",
+    borderRadius: "50%",
+    position: "relative",
+    background: `conic-gradient(${colors.Present} 0deg ${presentDegrees}deg, ${colors.Absent} ${presentDegrees}deg 360deg)`,
+    boxShadow: "0 4px 8px rgba(0,0,0,0.05)",
+    flexShrink: 0,
   };
 
-  const chartSeries = [attendanceCounts.present, attendanceCounts.absent];
-
-  const handleCardClick = () => {
-    navigate('/profileleave');
+  const innerHoleStyle = {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: "90px",
+    height: "90px",
+    borderRadius: "50%",
+    backgroundColor: theme.palette.background.paper,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "inset 0 0 10px rgba(0,0,0,0.02)",
   };
 
   return (
-    <Card
-      onClick={handleCardClick}
+    <Paper
+      onClick={() => navigate('/profileattendance')}
       sx={{
-         padding: 3,
+        padding: 3,
         height: "32vh",
+        minHeight: "280px",
         borderRadius: "12px",
-        background: "#fff",
+        background: "#f7f9fc",
         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
         transition: "all 0.3s ease",
         "&:hover": {
-          transform: "scale(1.06)",
-          boxShadow: "0 8px 20px rgba(0, 0, 0, 0.12)",
-          cursor: "pointer", // Add pointer cursor to indicate clickability
+          transform: "translateY(-2px)",
+          boxShadow: "0 6px 16px rgba(0, 0, 0, 0.1)",
+          cursor: "pointer",
         },
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
+        justifyContent: "space-between",
+        position: "relative",
       }}
     >
-      <div
-        style={{
-          height: "100%",
-          width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "left",
-          justifyContent: "center",
-        }}
-      >
+      {/* Header */}
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
         <Typography
+          variant="subtitle1"
           sx={{
-            fontWeight: "bold",
+            fontWeight: 600,
             color: theme.palette.text.primary,
-            textAlign: "left",
-            mb: 2,
-            fontSize: '1rem'
+            fontSize: "1rem",
+            fontFamily: "Inter, sans-serif",
           }}
         >
           Last Month Attendance
         </Typography>
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <ReactApexChart
-            options={chartOptions}
-            series={chartSeries}
-            type="donut"
-            width={350}
-            height={150}
-          />
+      </Box>
+
+      {/* Donut Chart */}
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 2 }}>
+        <div style={chartContainerStyle}>
+          <div style={innerHoleStyle}>
+            <Typography variant="h5" fontWeight={700} color={theme.palette.text.primary} sx={{ lineHeight: 1 }}>
+              {attendanceCounts.present}
+            </Typography>
+            <Typography variant="caption" color={theme.palette.text.secondary}>
+              Present
+            </Typography>
+          </div>
         </div>
-      </div>
-    </Card>
+      </Box>
+
+      {/* Legend */}
+      <Box sx={{ width: "100%", display: "flex", justifyContent: "space-around", mt: 2 }}>
+        {/* Present */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Box sx={{ width: 10, height: 10, borderRadius: "4px", bgcolor: colors.Present }} />
+          <Box>
+            <Typography variant="body2" fontWeight={600} color={theme.palette.text.primary}>
+              {attendanceCounts.present}
+            </Typography>
+            <Typography variant="caption" color={theme.palette.text.secondary}>
+              Days Present
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Absent */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Box sx={{ width: 10, height: 10, borderRadius: "4px", bgcolor: colors.Absent }} />
+          <Box>
+            <Typography variant="body2" fontWeight={600} color={theme.palette.text.primary}>
+              {attendanceCounts.absent}
+            </Typography>
+            <Typography variant="caption" color={theme.palette.text.secondary}>
+              Days Absent
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
+    </Paper>
   );
 };
 

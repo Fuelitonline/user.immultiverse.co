@@ -5,7 +5,6 @@ import {
   Paper,
   TextField,
   Divider,
-  useTheme,
   Fade,
   InputAdornment,
   Button,
@@ -13,29 +12,26 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import { Person, Email as EmailIcon, Phone, Home, Edit } from '@mui/icons-material';
+import { Person, Email as EmailIcon, Phone, Home, Edit, Save, Close, Info  } from '@mui/icons-material';
 import React, { useState, useEffect } from 'react';
-import { useGet, usePost } from '../../hooks/useApi'; // Adjust path as needed
-import { useAuth } from '../../middlewares/auth'; // Adjust path as needed
+import { useGet, usePost } from '../../hooks/useApi';
+import { useAuth } from '../../middlewares/auth';
 
 function BasicInfoTab() {
-  const theme = useTheme();
   const { user } = useAuth();
   const { data: emp, error: empError, isLoading: empLoading, refetch } = useGet('employee/employee-details', {
     empId: user?._id,
   });
   const { mutateAsync: updateEmployee } = usePost('employee/update');
 
-  // Initialize basicInfo state with default values
   const [basicInfo, setBasicInfo] = useState({
     fullName: '',
     email: '',
     phone: '',
     street: '',
   });
-  const [isEditing, setIsEditing] = useState(false); // Track edit mode
+  const [isEditing, setIsEditing] = useState(false);
 
-  // Update basicInfo when API data is fetched
   useEffect(() => {
     if (emp?.data?.data) {
       const data = emp.data.data;
@@ -48,7 +44,6 @@ function BasicInfoTab() {
     }
   }, [emp]);
 
-  // Handle changes to form fields
   const handleBasicInfoChange = (field) => (event) => {
     setBasicInfo((prev) => ({
       ...prev,
@@ -56,12 +51,10 @@ function BasicInfoTab() {
     }));
   };
 
-  // Handle edit button click
   const handleEditClick = () => {
-    setIsEditing((prev) => !prev); // Toggle edit mode
+    setIsEditing((prev) => !prev);
   };
 
-  // Handle form submission to update employee data
   const handleSubmit = async () => {
     try {
       const updateData = {
@@ -70,28 +63,26 @@ function BasicInfoTab() {
         email: basicInfo.email,
         phone: basicInfo.phone,
         address: {
-          ...emp?.data?.data?.address, // Preserve other address fields
+          ...emp?.data?.data?.address,
           street: basicInfo.street,
         },
       };
       await updateEmployee({ updateData });
-      setIsEditing(false); // Exit edit mode after saving
-      refetch(); // Refresh data after update
+      setIsEditing(false);
+      refetch();
     } catch (error) {
       console.error('Error updating employee:', error);
     }
   };
 
-  // Handle loading state
   if (empLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress color="primary" />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+        <CircularProgress sx={{ color: '#2563eb' }} size={48} />
       </Box>
     );
   }
 
-  // Handle error state
   if (empError) {
     return (
       <Box sx={{ p: 3 }}>
@@ -103,65 +94,82 @@ function BasicInfoTab() {
   return (
     <Fade in={true} timeout={600}>
       <Paper
-        elevation={4}
+        elevation={0}
         sx={{
           p: 4,
-          borderRadius: '20px',
-          background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.default} 100%)`,
-          boxShadow: `0 8px 32px ${theme.palette.grey[300]}`,
-          transition: 'all 0.3s ease-in-out',
+          borderRadius: '24px',
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+          position: 'relative',
+          overflow: 'hidden',
+          transition: 'all 0.3s ease',
           '&:hover': {
-            transform: 'translateY(-8px)',
-            boxShadow: `0 12px 48px ${theme.palette.grey[400]}`,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
           },
-          maxWidth: 800,
-          mx: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          position: 'relative', // For positioning the edit button
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: 'linear-gradient(90deg, #2563eb 0%, #0ea5e9 100%)'
+          }
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-          <Typography
-            variant="h5"
-            sx={{
-              color: theme.palette.primary.dark,
-              fontWeight: 700,
-              letterSpacing: 0.5,
-            }}
-          >
-            Basic Information
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ 
+              p: 1.5, 
+              borderRadius: '14px', 
+              background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+              <Info sx={{ color: '#2563eb', fontSize: 28 }} />
+            </Box>
+            <Box>
+              <Typography
+                variant="h5"
+                sx={{
+                  color: '#1e293b',
+                  fontWeight: 700,
+                  letterSpacing: -0.5,
+                }}
+              >
+                Basic Information
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#64748b' }}>
+                Your personal details
+              </Typography>
+            </Box>
+          </Box>
+          {(user?.role === 'superAdmin' || user?.role === 'admin' || user?.role === 'Manager' || user?._id === emp?.data?.data?._id) && (
+            <Tooltip title={isEditing ? 'Cancel Edit' : 'Edit Details'} arrow placement="left">
+              <IconButton
+                onClick={handleEditClick}
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '14px',
+                  background: isEditing ? 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)' : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                  color: isEditing ? '#dc2626' : '#2563eb',
+                  transition: 'all 0.3s',
+                  '&:hover': {
+                    background: isEditing ? 'linear-gradient(135deg, #fecaca 0%, #fca5a5 100%)' : 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                    transform: 'scale(1.05)',
+                  },
+                }}
+              >
+                {isEditing ? <Close sx={{ fontSize: 22 }} /> : <Edit sx={{ fontSize: 22 }} />}
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
-        {(user?.role === 'superAdmin' || user?.role === 'admin' || user?.role === 'Manager' || user?._id === emp?.data?.data?._id) && (
-          <Tooltip title={isEditing ? 'Cancel Edit' : 'Edit Details'} arrow>
-            <IconButton
-              onClick={handleEditClick}
-              sx={{
-                color: theme.palette.primary.main,
-                backgroundColor: theme.palette.mode === 'light' ? 'rgba(69, 114, 237, 0.1)' : 'rgba(209, 105, 178, 0.1)',
-                '&:hover': {
-                  backgroundColor: theme.palette.mode === 'light' ? 'rgba(69, 114, 237, 0.2)' : 'rgba(209, 105, 178, 0.2)',
-                  transform: 'scale(1.1)',
-                },
-                position: 'absolute',
-                top: 20,
-                right: 20,
-                transition: 'all 0.3s',
-              }}
-            >
-              <Edit sx={{ fontSize: 24 }} />
-            </IconButton>
-          </Tooltip>
-        )}
-        <Divider
-          sx={{
-            mb: 3,
-            borderColor: theme.palette.primary.light,
-            borderWidth: 1,
-          }}
-        />
+
+        <Divider sx={{ mb: 4, borderColor: '#e2e8f0' }} />
+
         <Grid container spacing={3}>
           <Grid item xs={12} sm={6}>
             <TextField
@@ -174,25 +182,39 @@ function BasicInfoTab() {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Person sx={{ color: theme.palette.primary.main }} />
+                    <Person sx={{ color: '#2563eb' }} />
                   </InputAdornment>
                 ),
               }}
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                  backgroundColor: theme.palette.background.paper,
+                  borderRadius: '14px',
+                  background: '#ffffff',
                   transition: 'all 0.3s',
-                  '&:hover': {
-                    backgroundColor: theme.palette.grey[50],
+                  '& fieldset': {
+                    borderColor: '#e2e8f0',
+                    borderWidth: '2px',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: '#60a5fa',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#2563eb',
+                    borderWidth: '2px',
                   },
                   '&.Mui-focused': {
-                    boxShadow: `0 0 0 4px ${theme.palette.primary.light}20`,
+                    boxShadow: '0 0 0 4px rgba(37, 99, 235, 0.1)',
                   },
+                  '&.Mui-disabled': {
+                    background: '#f8fafc',
+                  }
                 },
                 '& .MuiInputLabel-root': {
-                  color: theme.palette.text.secondary,
+                  color: '#64748b',
                   fontWeight: 500,
+                  '&.Mui-focused': {
+                    color: '#2563eb',
+                  }
                 },
               }}
             />
@@ -208,25 +230,39 @@ function BasicInfoTab() {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <EmailIcon sx={{ color: theme.palette.primary.main }} />
+                    <EmailIcon sx={{ color: '#2563eb' }} />
                   </InputAdornment>
                 ),
               }}
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                  backgroundColor: theme.palette.background.paper,
+                  borderRadius: '14px',
+                  background: '#ffffff',
                   transition: 'all 0.3s',
-                  '&:hover': {
-                    backgroundColor: theme.palette.grey[50],
+                  '& fieldset': {
+                    borderColor: '#e2e8f0',
+                    borderWidth: '2px',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: '#60a5fa',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#2563eb',
+                    borderWidth: '2px',
                   },
                   '&.Mui-focused': {
-                    boxShadow: `0 0 0 4px ${theme.palette.primary.light}20`,
+                    boxShadow: '0 0 0 4px rgba(37, 99, 235, 0.1)',
                   },
+                  '&.Mui-disabled': {
+                    background: '#f8fafc',
+                  }
                 },
                 '& .MuiInputLabel-root': {
-                  color: theme.palette.text.secondary,
+                  color: '#64748b',
                   fontWeight: 500,
+                  '&.Mui-focused': {
+                    color: '#2563eb',
+                  }
                 },
               }}
             />
@@ -242,25 +278,39 @@ function BasicInfoTab() {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Phone sx={{ color: theme.palette.primary.main }} />
+                    <Phone sx={{ color: '#2563eb' }} />
                   </InputAdornment>
                 ),
               }}
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                  backgroundColor: theme.palette.background.paper,
+                  borderRadius: '14px',
+                  background: '#ffffff',
                   transition: 'all 0.3s',
-                  '&:hover': {
-                    backgroundColor: theme.palette.grey[50],
+                  '& fieldset': {
+                    borderColor: '#e2e8f0',
+                    borderWidth: '2px',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: '#60a5fa',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#2563eb',
+                    borderWidth: '2px',
                   },
                   '&.Mui-focused': {
-                    boxShadow: `0 0 0 4px ${theme.palette.primary.light}20`,
+                    boxShadow: '0 0 0 4px rgba(37, 99, 235, 0.1)',
                   },
+                  '&.Mui-disabled': {
+                    background: '#f8fafc',
+                  }
                 },
                 '& .MuiInputLabel-root': {
-                  color: theme.palette.text.secondary,
+                  color: '#64748b',
                   fontWeight: 500,
+                  '&.Mui-focused': {
+                    color: '#2563eb',
+                  }
                 },
               }}
             />
@@ -276,44 +326,87 @@ function BasicInfoTab() {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Home sx={{ color: theme.palette.primary.main }} />
+                    <Home sx={{ color: '#2563eb' }} />
                   </InputAdornment>
                 ),
               }}
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                  backgroundColor: theme.palette.background.paper,
+                  borderRadius: '14px',
+                  background: '#ffffff',
                   transition: 'all 0.3s',
-                  '&:hover': {
-                    backgroundColor: theme.palette.grey[50],
+                  '& fieldset': {
+                    borderColor: '#e2e8f0',
+                    borderWidth: '2px',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: '#60a5fa',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#2563eb',
+                    borderWidth: '2px',
                   },
                   '&.Mui-focused': {
-                    boxShadow: `0 0 0 4px ${theme.palette.primary.light}20`,
+                    boxShadow: '0 0 0 4px rgba(37, 99, 235, 0.1)',
                   },
+                  '&.Mui-disabled': {
+                    background: '#f8fafc',
+                  }
                 },
                 '& .MuiInputLabel-root': {
-                  color: theme.palette.text.secondary,
+                  color: '#64748b',
                   fontWeight: 500,
+                  '&.Mui-focused': {
+                    color: '#2563eb',
+                  }
                 },
               }}
             />
           </Grid>
         </Grid>
+
         {isEditing && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 4, pt: 3, borderTop: '1px solid #e2e8f0' }}>
+            <Button
+              variant="outlined"
+              onClick={handleEditClick}
+              startIcon={<Close />}
+              sx={{
+                borderRadius: '14px',
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.95rem',
+                px: 3,
+                py: 1.25,
+                borderWidth: '2px',
+                borderColor: '#e2e8f0',
+                color: '#64748b',
+                '&:hover': {
+                  borderWidth: '2px',
+                  borderColor: '#cbd5e1',
+                  background: '#f8fafc',
+                },
+              }}
+            >
+              Cancel
+            </Button>
             <Button
               variant="contained"
               onClick={handleSubmit}
+              startIcon={<Save />}
               sx={{
-                borderRadius: '12px',
+                borderRadius: '14px',
                 textTransform: 'none',
                 fontWeight: 600,
-                backgroundColor: theme.palette.primary.main,
-                padding: '8px 20px',
+                fontSize: '0.95rem',
+                px: 3,
+                py: 1.25,
+                background: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
+                boxShadow: '0 8px 24px rgba(37, 99, 235, 0.3)',
                 '&:hover': {
-                  backgroundColor: theme.palette.primary.dark,
-                  transform: 'scale(1.05)',
+                  background: 'linear-gradient(135deg, #1d4ed8 0%, #0284c7 100%)',
+                  boxShadow: '0 12px 32px rgba(37, 99, 235, 0.4)',
+                  transform: 'translateY(-2px)',
                 },
                 transition: 'all 0.3s',
               }}
