@@ -145,7 +145,7 @@ function DashboardPage() {
             {/* Calendar View and Custom Event Section in the same line */}
             <Grid container item xs={12} spacing={4}>
               <Grid item xs={12} md={6}>
-                <CalendarViewAttendance size={{ height: { xs: '320px', md: '400px' }, width: '100%' }} />
+                <CalendarViewAttendance size={{ height: '100%', width: '100%' }} />
               </Grid>
               <Grid item xs={12} md={6}>
                 <CustomEventSection />

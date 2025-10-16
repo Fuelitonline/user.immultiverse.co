@@ -69,6 +69,8 @@ function MainCalender() {
                 handleToggleFeedback={handleToggleFeedback}
                 handlePopoverClose={handlePopoverClose}
                 handleFeedbackChange={handleFeedbackChange}
+                    // 👇 FIX: Current User object/ID को पास करें
+                currentUserId={user?._id} 
                 loading={loading}
                 feedback={feedback}
               />

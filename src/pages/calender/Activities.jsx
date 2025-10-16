@@ -1,3 +1,6 @@
+
+
+
 import React, { useState, useEffect, useMemo, Component } from "react";
 import {
   Box,
@@ -44,7 +47,7 @@ import GetFileThumbnail from "./getFileThumnail";
 import { Link } from "react-router-dom";
 import { useGet, usePost } from "../../hooks/useApi";
 
-// Styled Components
+// Styled Components (unchanged)
 const StyledCard = styled(Card)(({ theme }) => ({
   marginBottom: theme.spacing(1),
   border: `1px solid ${theme.palette.grey[200]}`,
@@ -109,7 +112,7 @@ const LoadingOverlay = styled(Backdrop)(({ theme }) => ({
   backgroundColor: "rgba(255, 255, 255, 0.8)",
 }));
 
-// Error Boundary Component
+// Error Boundary Component (unchanged)
 class ActivitiesErrorBoundary extends Component {
   state = { hasError: false, error: null };
 
@@ -155,7 +158,7 @@ function Activities({
   const [events, setEvents] = useState([]);
   const [dailyWork, setDailyWork] = useState([]);
 
-  // Determine the date range for fetching data
+  // Determine the date range for fetching data (used for events and meetings)
   const dateParams = useMemo(() => {
     if (
       selectedDateRange?.start &&
@@ -188,39 +191,44 @@ function Activities({
     data: getMeetings,
     isLoading: isMeetingsLoading,
     error: meetingsError,
+    refetch: refetchMeetings,
   } = useGet(
     "meetings/get",
-    {
-      startDate: dateParams.startDate,
-      endDate: dateParams.endDate,
-    },
-    {},
-    { queryKey: ["meetings", dateParams.startDate, dateParams.endDate] }
-  );
-
-  const { data: getDailyWorkData, refetch } = useGet(
-    "/employee/daily-work/get",
     {
       employeeId: user?._id,
       startDate: dateParams.startDate,
       endDate: dateParams.endDate,
     },
     {},
-    { queryKey: ["dailyWork", user?._id, dateParams.startDate, dateParams.endDate] }
+    { queryKey: ["meetings", user?._id, dateParams.startDate, dateParams.endDate] }
+  );
+
+  // ✅ FIXED: Use currentMonth and currentYear for dailywork to match CalendarView
+  const { data: getDailyWorkData, refetch: refetchDailyWork } = useGet(
+    "/employee/daily-work/get",
+    {
+      employeeId: user?._id,
+      currentMonth,
+      currentYear,
+    },
+    {},
+    { queryKey: ["dailyWork", user?._id, currentMonth, currentYear] }
   );
 
   const {
     data: getEventsData,
     isLoading: isEventsLoading,
     error: eventsError,
+    refetch: refetchEvents,
   } = useGet(
-    "/employee/event",
+    "/event", // ✅ FIXED: Changed endpoint to match CalendarView
     {
+      employeeId: user?._id,
       startDate: dateParams.startDate,
       endDate: dateParams.endDate,
     },
     {},
-    { queryKey: ["events", dateParams.startDate, dateParams.endDate] }
+    { queryKey: ["events", user?._id, dateParams.startDate, dateParams.endDate] }
   );
 
   const { data: employees } = useGet(
@@ -229,82 +237,100 @@ function Activities({
     {},
     { queryKey: "employees" }
   );
+  
+  // ✅ FIXED: Refetch when currentMonth or currentYear changes (for all fetches)
+  useEffect(() => {
+    refetchDailyWork();
+    refetchMeetings();
+    refetchEvents();
+  }, [currentMonth, currentYear]);
+
+  // ✅ NEW EFFECT: Initial refetch on mount
+  useEffect(() => {
+    refetchDailyWork();
+    refetchMeetings();
+    refetchEvents();
+  }, []); // Run on component mount
 
   const handleGiveFeedback = usePost("/employee/daily-work/update");
 
+  // Helper to extract array from API response (robust for varying structures)
+  const extractArray = (responseData) => {
+    if (!responseData) return [];
+    let data = responseData?.data;
+    while (data && !Array.isArray(data)) {
+      data = data?.data;
+    }
+    return Array.isArray(data) ? data : [];
+  };
+
   // Update daily work state with multi-day task splitting
   useEffect(() => {
-    if (getDailyWorkData?.data?.data) {
-      const tasks = Array.isArray(getDailyWorkData.data.data.data)
-        ? getDailyWorkData.data.data.data
-        : [];
+    const tasks = extractArray(getDailyWorkData);
+    const expandedTasks = tasks.flatMap((task) => {
+      const startMoment =
+        task.startDate && moment(task.startDate).isValid()
+          ? moment(task.startDate).tz("UTC")
+          : moment().tz("UTC");
+      const endMoment =
+        task.endDate && moment(task.endDate).isValid()
+          ? moment(task.endDate).tz("UTC")
+          : startMoment.clone();
 
-      const expandedTasks = tasks.flatMap((task) => {
-        const startMoment =
-          task.startDate && moment(task.startDate).isValid()
-            ? moment(task.startDate).tz("UTC")
-            : moment().tz("UTC");
-        const endMoment =
-          task.endDate && moment(task.endDate).isValid()
-            ? moment(task.endDate).tz("UTC")
-            : startMoment.clone();
-
-        if (startMoment.isSame(endMoment, "day")) {
-          return [
-            {
-              ...task,
-              date: startMoment.toDate(),
-              originalId: task._id,
-              taskId: `${task._id}-0`,
-            },
-          ];
-        }
-
-        const taskEntries = [];
-        let currentDay = startMoment.clone().startOf("day");
-        const endDay = endMoment.clone().startOf("day");
-        let dayIndex = 0;
-
-        while (currentDay.isSameOrBefore(endDay, "day")) {
-          taskEntries.push({
+      if (startMoment.isSame(endMoment, "day")) {
+        return [
+          {
             ...task,
-            date: currentDay.toDate(),
+            date: startMoment.toDate(),
             originalId: task._id,
-            taskId: `${task._id}-${dayIndex}`,
-            isMultiDay: true,
-            fullDuration: `${startMoment.format("MMM D")} to ${endMoment.format(
-              "MMM D"
-            )}`,
-          });
-          currentDay.add(1, "day");
-          dayIndex++;
-        }
-        return taskEntries;
-      });
+            taskId: `${task._id}-0`,
+          },
+        ];
+      }
 
-      const seenIds = new Set();
-      const uniqueTasks = expandedTasks.filter((task) => {
-        if (seenIds.has(task.originalId)) {
-          return false;
-        }
-        seenIds.add(task.originalId);
-        return true;
-      });
+      const taskEntries = [];
+      let currentDay = startMoment.clone().startOf("day");
+      const endDay = endMoment.clone().startOf("day");
+      let dayIndex = 0;
 
-      setDailyWork(uniqueTasks);
-    } else {
-      setDailyWork([]);
-    }
+      while (currentDay.isSameOrBefore(endDay, "day")) {
+        taskEntries.push({
+          ...task,
+          date: currentDay.toDate(),
+          originalId: task._id,
+          taskId: `${task._id}-${dayIndex}`,
+          isMultiDay: true,
+          fullDuration: `${startMoment.format("MMM D")} to ${endMoment.format(
+            "MMM D"
+          )}`,
+        });
+        currentDay.add(1, "day");
+        dayIndex++;
+      }
+      return taskEntries;
+    });
+
+    const seenIds = new Set();
+    const uniqueTasks = expandedTasks.filter((task) => {
+      if (seenIds.has(task.originalId)) {
+        return false;
+      }
+      seenIds.add(task.originalId);
+      return true;
+    });
+
+    setDailyWork(uniqueTasks);
   }, [getDailyWorkData]);
 
   // Update events state
   useEffect(() => {
-    if (isEventsLoading || eventsError || !getEventsData?.data?.data) {
+    if (isEventsLoading || eventsError) {
       setEvents([]);
       return;
     }
-    if (Array.isArray(getEventsData.data.data)) {
-      const eventData = getEventsData.data.data.map((event) => ({
+    const eventsArray = extractArray(getEventsData);
+    if (eventsArray.length > 0) {
+      const eventData = eventsArray.map((event) => ({
         ...event,
         eventDate: event.start,
         meetingName: event.title,
@@ -322,12 +348,14 @@ function Activities({
 
   // Update meetings state
   useEffect(() => {
-    if (isMeetingsLoading || meetingsError || !getMeetings?.data?.data) {
+    if (isMeetingsLoading || meetingsError) {
+      // Keep existing events that have eventDate (non-meetings)
       setEvents((prevEvents) => prevEvents.filter((event) => event.eventDate));
       return;
     }
-    if (Array.isArray(getMeetings.data.data)) {
-      const meetings = getMeetings.data.data.map((meeting) => ({
+    const meetingsArray = extractArray(getMeetings);
+    if (meetingsArray.length > 0) {
+      const meetings = meetingsArray.map((meeting) => ({
         ...meeting,
         meetingDate: meeting.start_time_Date,
         meetingName: meeting.meetingName,
@@ -345,6 +373,7 @@ function Activities({
       ]);
     }
   }, [getMeetings, isMeetingsLoading, meetingsError, user]);
+
 
   const combinedData = useMemo(() => {
     const seenIds = new Set();
@@ -376,7 +405,7 @@ function Activities({
     return mergedData;
   }, [dailyWork, events]);
 
-  // Helper functions
+  // Helper functions (unchanged)
   const getStatus = (date) => {
     if (!date || !moment(date).isValid()) {
       return "Unknown";
@@ -418,7 +447,7 @@ function Activities({
     };
     try {
       await handleGiveFeedback.mutateAsync(data);
-      refetch();
+      refetchDailyWork(); // Refetch only daily work after submitting feedback
       setLocalFeedbacks((prev) => ({
         ...prev,
         [id]: [
@@ -453,6 +482,7 @@ function Activities({
     }
   };
 
+  // Filter logic (unchanged)
   const filteredData = combinedData.filter((item) => {
     const itemDate = item.date
       ? moment(item.date).tz("UTC").format("YYYY-MM-DD")
@@ -483,11 +513,13 @@ function Activities({
       ? getStatus(item.meetingDate)
       : isEvent
       ? getStatus(item.eventDate)
+      : isDailyWork
+      ? item.status || 'Ongoing'
       : null;
 
     return (
       <StyledCard key={`${item.taskId || item._id}-${index}`}>
-        {(isMeeting || isEvent) && status !== "Unknown" && (
+        {(isMeeting || isEvent || isDailyWork) && status !== "Unknown" && (
           <StatusDot status={status} />
         )}
 
@@ -496,6 +528,10 @@ function Activities({
             <Box display="flex" alignItems="flex-start" gap={1} flex={1}>
               <IconContainer
                 variant={isDailyWork ? "task" : isMeeting ? "meeting" : "event"}
+                sx={{ 
+                    bgcolor: isDailyWork && item.color ? item.color + '1A' : undefined, 
+                    color: isDailyWork && item.color ? item.color : undefined
+                }}
               >
                 {isDailyWork ? (
                   <Assignment sx={{ fontSize: 16 }} />
@@ -515,7 +551,7 @@ function Activities({
                     noWrap
                   >
                     {isDailyWork
-                      ? item.description || "No Description"
+                      ? item.title || item.description || "No Description"
                       : isMeeting
                       ? item.meetingName || "Unnamed Meeting"
                       : item.title || "Unnamed Event"}
@@ -537,7 +573,7 @@ function Activities({
                     />
                   )}
                 </Box>
-
+                
                 <Box display="flex" alignItems="center" gap={2} mb={0.5}>
                   <Box display="flex" alignItems="center" gap={0.5}>
                     <CalendarTodayIcon sx={{ fontSize: 10 }} />
@@ -607,6 +643,20 @@ function Activities({
               />
             )}
           </Box>
+          
+          {isDailyWork && item.guests && item.guests.length > 0 && (
+            <Box display="flex" alignItems="center" gap={1} mb={1}>
+                <PersonIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                <Typography variant="caption" color="text.secondary" noWrap>
+                    Guests: 
+                    <Tooltip title={item.guests.join(', ')} arrow>
+                        <Typography component="span" variant="caption" fontWeight="600" sx={{ ml: 0.5 }}>
+                            {item.guests.length}
+                        </Typography>
+                    </Tooltip>
+                </Typography>
+            </Box>
+          )}
 
           {isDailyWork && (
             <>
@@ -884,7 +934,6 @@ function Activities({
           </Box>
         )}
 
-        {/* Feedback Popover */}
         <Popover
           open={Boolean(anchorEl)}
           anchorEl={anchorEl}

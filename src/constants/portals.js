@@ -15,6 +15,6 @@ export const ALLOWED_PORTALS = {
   },
   admin: {
     prod: import.meta.env.VITE_ADMIN_URL || "https://admin.immultiverse.co",
-    local: "/?portal=hrm",
+    local: "/?portal=admin",
   }
 };

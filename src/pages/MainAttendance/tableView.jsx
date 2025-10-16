@@ -250,16 +250,16 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
-                color: theme.palette.text.primary,
                 letterSpacing: '0.5px',
                 fontFamily: "'Poppins', sans-serif",
+                color: 'var(--text-color-2)!important',
                 fontSize: isMobile ? '1.1rem' : '1.5rem',
                 background: 'linear-gradient(90deg, #2c3e50, #4a6a88)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
               }}
             >
-              <CalendarIcon sx={{ fontSize: isMobile ? 20 : 24, color: theme.palette.text.primary }} />
+              <CalendarIcon sx={{ fontSize: isMobile ? 20 : 24, color: 'var(--text-color-2)' }} />
               Attendance Dashboard
             </Typography>
           }
@@ -267,7 +267,7 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
             <Typography
               variant="body2"
               sx={{
-                color: theme.palette.text.secondary,
+                color: 'var(--text-color-2)',
                 mt: 0.5,
                 fontFamily: "'Roboto', sans-serif",
                 fontSize: isMobile ? '0.85rem' : '1rem',
@@ -284,9 +284,9 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                 disabled={loading}
                 sx={{
                   color: '#fff',
-                  background: 'linear-gradient(45deg, #4a6a88, #6a8aa8)',
+                  background: 'var(--background-bg-2)',
                   '&:hover': {
-                    background: 'linear-gradient(45deg, #3a5a78, #5a7a98)',
+                    background: 'var(--background-bg-2)',
                     transform: 'scale(1.15)',
                   },
                   transition: 'all 0.3s ease',
@@ -353,11 +353,13 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                 sx={{
                   '& .MuiFilledInput-root': {
                     borderRadius: '12px',
-                    background: '#A3BFFA',
                     transition: 'all 0.3s ease-in-out',
+                    background: 'linear-gradient(145deg, #ffffff, #e6ecef)',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2), inset 0 2px 4px rgba(255, 255, 255, 0.5)',
+                    border: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
+                    p: 0.5,
                     '&:hover': {
-                      background: '#8DA9FA',
-                      boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
+                      boxShadow: '0 12px 32px rgba(0, 0, 0, 0.25), inset 0 2px 4px rgba(255, 255, 255, 0.5)',
                       transform: 'translateY(-2px)',
                     },
                     '&:before': {
@@ -367,7 +369,6 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                       borderBottom: 'none',
                     },
                     fontSize: isMobile ? '0.75rem' : '0.875rem',
-                    fontFamily: "'Roboto', sans-serif",
                     color: '#2C3E50',
                   },
                   '& .MuiSvgIcon-root': {
@@ -404,11 +405,13 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                 sx={{
                   '& .MuiFilledInput-root': {
                     borderRadius: '12px',
-                    background: '#FCE38A',
                     transition: 'all 0.3s ease-in-out',
+                    background: 'linear-gradient(145deg, #ffffff, #e6ecef)',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2), inset 0 2px 4px rgba(255, 255, 255, 0.5)',
+                    border: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
+                    p: 0.5,
                     '&:hover': {
-                      background: '#FAD165',
-                      boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
+                      boxShadow: '0 12px 32px rgba(0, 0, 0, 0.25), inset 0 2px 4px rgba(255, 255, 255, 0.5)',
                       transform: 'translateY(-2px)',
                     },
                     '&:before': {
@@ -418,7 +421,6 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                       borderBottom: 'none',
                     },
                     fontSize: isMobile ? '0.75rem' : '0.875rem',
-                    fontFamily: "'Roboto', sans-serif",
                     color: '#2C3E50',
                   },
                   '& .MuiSvgIcon-root': {
@@ -580,12 +582,11 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                       onClick={() => requestSort('day')}
                       sx={{
                         fontWeight: 600,
-                        background: 'linear-gradient(45deg, #4a6a88, #6a8aa8)',
+                        background: 'var(--background-bg-2)',
                         color: '#ffffff',
                         borderBottom: `2px solid ${theme.palette.divider}`,
                         cursor: 'pointer',
                         '&:hover': {
-                          background: 'linear-gradient(45deg, #3a5a78, #5a7a98)',
                           transition: 'background 0.2s',
                         },
                         p: isMobile ? 1.2 : 2,
@@ -604,7 +605,7 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                     <TableCell
                       sx={{
                         fontWeight: 600,
-                        background: 'linear-gradient(45deg, #4a6a88, #6a8aa8)',
+                        background: 'var(--background-bg-2)',
                         color: '#ffffff',
                         borderBottom: `2px solid ${theme.palette.divider}`,
                         p: isMobile ? 1.2 : 2,
@@ -622,7 +623,7 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                     <TableCell
                       sx={{
                         fontWeight: 600,
-                        background: 'linear-gradient(45deg, #4a6a88, #6a8aa8)',
+                        background: 'var(--background-bg-2)',
                         color: '#ffffff',
                         borderBottom: `2px solid ${theme.palette.divider}`,
                         p: isMobile ? 1.2 : 2,
@@ -641,7 +642,7 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                       onClick={() => requestSort('totalEntries')}
                       sx={{
                         fontWeight: 600,
-                        background: 'linear-gradient(45deg, #4a6a88, #6a8aa8)',
+                        background: 'var(--background-bg-2)',
                         color: '#ffffff',
                         borderBottom: `2px solid ${theme.palette.divider}`,
                         cursor: 'pointer',
@@ -665,7 +666,7 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                       onClick={() => requestSort('totalWorkingTime')}
                       sx={{
                         fontWeight: 600,
-                        background: 'linear-gradient(45deg, #4a6a88, #6a8aa8)',
+                        background: 'var(--background-bg-2)',
                         color: '#ffffff',
                         borderBottom: `2px solid ${theme.palette.divider}`,
                         cursor: 'pointer',
@@ -689,7 +690,7 @@ const DailyRecordsTable = ({ initialMonth = DateTime.local().month, initialYear 
                     <TableCell
                       sx={{
                         fontWeight: 600,
-                        background: 'linear-gradient(45deg, #4a6a88, #6a8aa8)',
+                        background: 'var(--background-bg-2)',
                         color: '#ffffff',
                         borderBottom: `2px solid ${theme.palette.divider}`,
                         p: isMobile ? 1.2 : 2,

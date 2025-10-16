@@ -100,4 +100,20 @@ apiClient.interceptors.response.use(
   }
 );
 
+// apiClient.interceptors.request.use(
+//   (config) => {
+//     const tokenData = localStorage.getItem('authToken');
+//     if (tokenData) {
+//       config.headers.Authorization = `Bearer ${tokenData}`;
+//     } else {
+//       console.warn('No valid token found or decryption failed');
+//     }
+//     return config;
+//   },
+//   (error) => {
+//     console.error('Request Error:', error);
+//     return Promise.reject(error);
+//   }
+// );
+
 export default apiClient;
