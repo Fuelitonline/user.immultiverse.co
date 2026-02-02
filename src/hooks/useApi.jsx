@@ -131,3 +131,19 @@ export const useDelete = (endpoint, headers = {}, queryKey = null) => {
     },
   });
 };
+
+
+export const useDownloadSalaryPDF = () => {
+  return useMutation({
+    mutationFn: async (slipId) => {
+      const response = await apiClient.get(
+        `/company/salary/download-slip/${slipId}`,
+        {
+          responseType: "arraybuffer", 
+        }
+      );
+
+      return response.data; 
+    },
+  });
+};

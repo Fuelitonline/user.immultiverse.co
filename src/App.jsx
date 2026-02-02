@@ -26,7 +26,7 @@ import LeaveBucket from './pages/BucketList/Leavebucket.jsx';
 import Employeestab from './pages/EmployeesPage/Employeetab.jsx';
 import DashboardPage from './pages/MainDashboard/Dashboard.jsx';
 import LeavePage from './pages/MainLeave/LeavePage.jsx';
-import PayrollPage from './pages/MainPayroll/PayrollPage.jsx';
+import PayrollPage from './pages/MainPayroll/salary/SalarySlipPage.jsx';
 import ProfilePage from './pages/MainProfile/Profile.jsx';
 import { Calendar } from 'react-big-calendar';
 import MainCalender from './pages/calender/MainCalender.jsx';

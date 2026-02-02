@@ -33,11 +33,11 @@ const PayrollPage = () => {
     }
   };
 
-  return (
-      <Box sx={{ bgcolor: '#f4f6f8', flexGrow: 1 }}>
-            Faild to load PDF: PDF generation failed
-      </Box>
-  )
+  // return (
+  //     <Box sx={{ bgcolor: '#f4f6f8', flexGrow: 1 }}>
+  //           Faild to load PDF: PDF generation failed
+  //     </Box>
+  // )
 
   return (
     <Box

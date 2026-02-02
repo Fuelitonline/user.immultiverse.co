@@ -395,7 +395,7 @@ const ModernEventCalendar = ({ events = [], isLoading = false, error = null }) =
 // --- 4. Wrapper Component (API Integration) (Unchanged) ---
 
 const CustomEventSection = () => {
-  const { data, isLoading, error } = useGet('/event', {});
+  const { data, isLoading, error } = useGet('/employee/event', {});
   let events = [];
 
   if (data && Array.isArray(data?.data?.data)) {
