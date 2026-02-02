@@ -133,7 +133,7 @@ const LeaveFilter = ({ filters, handleFilterChange, theme }) => (
           { name: 'status', label: 'Status', options: ['', 'Pending', 'Approved', 'Rejected'], type: 'select', icon: <AssignmentTurnedInIcon sx={{ color: '#1976D2', fontSize: 20 }} /> },
           { name: 'startDate', label: 'Start Date', type: 'date', icon: <CalendarTodayIcon sx={{ color: '#1976D2', fontSize: 20 }} /> },
           { name: 'endDate', label: 'End Date', type: 'date', icon: <CalendarTodayIcon sx={{ color: '#1976D2', fontSize: 20 }} /> },
-          { name: 'leavePaymentType', label: 'Payment Type', options: ['', 'Paid', 'Unpaid'], type: 'select', icon: <EventNoteIcon sx={{ color: '#1976D2', fontSize: 20 }} /> },
+          { name: 'leavePaymentType', label: 'Leave Type', options: ['', 'Paid', 'Unpaid'], type: 'select', icon: <EventNoteIcon sx={{ color: '#1976D2', fontSize: 20 }} /> },
           { name: 'duration', label: 'Duration', options: ['', 'Full Day', 'Morning', 'Evening'], type: 'select', icon: <AccessTimeIcon sx={{ color: '#1976D2', fontSize: 20 }} /> },
         ].map(({ name, label, options, type, icon }) => (
           <Grid item xs={12} sm={6} md={4} key={name}>
@@ -183,7 +183,7 @@ const LeaveTable = ({ filteredLeaveRequests, user, userId, loading, handleAction
       <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
         <TableHead sx={commonStyles.tableHead(theme)}>
           <TableRow>
-            {['Leave Type', 'Date', 'Duration', 'Payment Type', 'Status', 'Reason'].map((header) => (
+            {['Leave Type', 'Date', 'Duration', 'Leave Type', 'Status', 'Reason'].map((header) => (
               <TableCell key={header} sx={commonStyles.tableCell(theme)}>
                 {header}
               </TableCell>
@@ -258,7 +258,7 @@ const LeaveGrid = ({ filteredLeaveRequests, user, userId, loading, handleActionL
     <Grid container spacing={3}>
       {filteredLeaveRequests.length > 0 ? (
         filteredLeaveRequests.map((item) => (
-          <Grid item xs={12} sm={6} md={4} key={item._id || Date.now()}>
+          <Grid item xs={12} sm={6} md={4} key={item._id || Date.now()} sx={{mt: 2}}>
             <Card sx={commonStyles.card(theme)}>
               <CardContent sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -300,7 +300,7 @@ const LeaveGrid = ({ filteredLeaveRequests, user, userId, loading, handleActionL
                     </Typography>
                   </Box>
                   <Typography variant="body2" color={item.leavePaymentType === 'Paid' ? 'success.main' : 'warning.main'}>
-                    Payment: {item.leavePaymentType || 'N/A'}
+                    Leave: {item.leavePaymentType || 'N/A'}
                   </Typography>
                 </Box>
                 {(user.role === 'superAdmin' || user?.junior?.includes(userId)) && (
@@ -467,45 +467,41 @@ const LeavePage = () => {
   });
 
   const apiEndpoint = user.role === 'superAdmin' || user.role === 'Manager' ? 'employee/leave/get-all' : 'employee/leave/get-by-id';
-const apiParams = user.role === 'superAdmin' || user.role === 'Manager'
-  ? { page: currentPage, limit: perPage }
-  : { employeeId: userId, page: currentPage, limit: perPage };
-
+  const apiParams = user.role === 'superAdmin' || user.role === 'Manager'
+    ? { page: currentPage, limit: perPage }
+    : { employeeId: userId, page: currentPage, limit: perPage };
 
   const { data: leaves, isLoading, refetch } = useGet(apiEndpoint, apiParams);
   const handleSubmitLeave = usePost("/employee/leave/create");
   const handleUpdateLeave = usePost("/employee/leave/update");
 
+  // Helper function to transform API data
+  const transformLeaveRequests = useCallback((requests) => {
+    return requests.map(item => ({
+      ...item,
+      leavePaymentType: item.isPaid ? 'Paid' : 'Unpaid'
+    }));
+  }, []);
+
   useEffect(() => {
     if (leaves?.data?.data?.leaveRequests) {
-      setLeaveRequest(Array.isArray(leaves.data.data.leaveRequests) ? leaves.data.data.leaveRequests : []);
+      const res = leaves.data.data;
+      setLeaveRequest(transformLeaveRequests(res.leaveRequests));
+      
+      if (res.pagination) {
+        setTotalPages(res.pagination.totalPages || 1);
+        setCurrentPage(res.pagination.currentPage || 1);
+        setPerPage(res.pagination.perPage || 10);
+        setTotalCount(res.pagination.total || 0);
+      }
     } else {
       setLeaveRequest([]);
     }
-  }, [leaves]);
+  }, [leaves, transformLeaveRequests]);
 
   useEffect(() => {
-  if (leaves?.data?.data?.leaveRequests) {
-    const res = leaves.data.data;
-    setLeaveRequest(res.leaveRequests || []);
-    
-    if (res.pagination) {
-      setTotalPages(res.pagination.totalPages || 1);
-      setCurrentPage(res.pagination.currentPage || 1);
-      setPerPage(res.pagination.perPage || 10);
-      setTotalCount(res.pagination.total || 0);
-    }
-  } else {
-    setLeaveRequest([]);
-  }
-}, [leaves]);
-
-
-  useEffect(() => {
-  refetch();
-}, [currentPage]);
-
-
+    refetch();
+  }, [currentPage]);
 
   const validateForm = useCallback(() => {
     const errors = {};
@@ -515,7 +511,7 @@ const apiParams = user.role === 'superAdmin' || user.role === 'Manager'
     if (leaveData.leaveDuration === 'Half Day' && !leaveData.halfDayType) errors.halfDayType = "Half day type is required";
     if (!leaveData.time) errors.time = "Time is required";
     if (!leaveData.reason.trim()) errors.reason = "Reason is required";
-    if (!leaveData.leavePaymentType) errors.leavePaymentType = "Payment type is required";
+    if (!leaveData.leavePaymentType) errors.leavePaymentType = "Leave type is required";
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   }, [leaveData]);
@@ -535,21 +531,20 @@ const apiParams = user.role === 'superAdmin' || user.role === 'Manager'
         employeeId: userId,
         status: "Pending",
         createdAt: new Date().toISOString(),
-        leavePaymentType: leaveData.leavePaymentType || 'Paid',
+        isPaid: leaveData.leavePaymentType === 'Paid'
       };
       if (!handleSubmitLeave.mutateAsync) throw new Error("usePost hook is not initialized");
       const res = await handleSubmitLeave.mutateAsync(leaveDetails);
 
       if (res.data) {
-        setLeaveRequest((prev) => [
-          {
-            ...leaveDetails,
-            _id: res.data?.data?._id || Date.now(),
-            status: "Pending",
-            date: new Date(leaveDetails.date).toISOString(),
-          },
-          ...prev,
-        ]);
+        const newLeave = {
+          ...leaveDetails,
+          _id: res.data?.data?._id || Date.now(),
+          status: "Pending",
+          date: new Date(leaveDetails.date).toISOString(),
+          leavePaymentType: leaveDetails.isPaid ? 'Paid' : 'Unpaid'
+        };
+        setLeaveRequest((prev) => [newLeave, ...prev]);
         setSnackbarMessage("Leave request submitted successfully!");
         setSnackbarSeverity("success");
         refetch();
@@ -810,47 +805,44 @@ const apiParams = user.role === 'superAdmin' || user.role === 'Manager'
                 )}
 
                 {/* Pagination */}
-                {/* 👇 Pagination & Rows per Page Controls */}
-<Box
-  sx={{
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    mt: 3,
-    px: 2,
-  }}
->
-  {/* Rows per page selector */}
-  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-    <Typography variant="body2">Rows per page:</Typography>
-    <FormControl size="small" sx={{width: '150px'}}>
-      <Select
-        value={perPage}
-        onChange={(e) => {
-          setPerPage(e.target.value);
-          setCurrentPage(1); // reset to first page when limit changes
-        }}
-      >
-        {[5, 10, 25, 50].map((num) => (
-          <MenuItem key={num} value={num}>
-            {num}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
-  </Box>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    mt: 3,
+                    px: 2,
+                  }}
+                >
+                  {/* Rows per page selector */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2">Rows per page:</Typography>
+                    <FormControl size="small" sx={{width: '150px'}}>
+                      <Select
+                        value={perPage}
+                        onChange={(e) => {
+                          setPerPage(e.target.value);
+                          setCurrentPage(1); // reset to first page when limit changes
+                        }}
+                      >
+                        {[5, 10, 25, 50].map((num) => (
+                          <MenuItem key={num} value={num}>
+                            {num}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
 
-  {/* Pagination */}
-  <Pagination
-    count={totalPages}
-    page={currentPage}
-    onChange={(e, page) => setCurrentPage(page)}
-    color="primary"
-    shape="rounded"
-  />
-</Box>
-
-
+                  {/* Pagination */}
+                  <Pagination
+                    count={totalPages}
+                    page={currentPage}
+                    onChange={(e, page) => setCurrentPage(page)}
+                    color="primary"
+                    shape="rounded"
+                  />
+                </Box>
               </Box>
             </>
           )}

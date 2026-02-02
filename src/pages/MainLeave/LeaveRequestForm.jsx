@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { LocalizationProvider, DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { format, parse } from 'date-fns';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import EventNoteIcon from '@mui/icons-material/EventNote';
@@ -143,9 +144,12 @@ const LeaveRequestForm = ({ leaveData, setLeaveData, formErrors, theme }) => {
                   />
                 ) : type === 'date' ? (
                   <DatePicker
-                    value={leaveData[name] ? new Date(leaveData[name]) : null}
+                    value={leaveData[name] ? parse(leaveData[name], 'yyyy-MM-dd', new Date()) : null}
                     onChange={(newVal) =>
-                      setLeaveData({ ...leaveData, [name]: newVal ? newVal.toISOString() : '' })
+                      setLeaveData({ 
+                        ...leaveData, 
+                        [name]: newVal ? format(newVal, 'yyyy-MM-dd') : '' 
+                      })
                     }
                     renderInput={(params) => (
                       <TextField
@@ -184,9 +188,12 @@ const LeaveRequestForm = ({ leaveData, setLeaveData, formErrors, theme }) => {
                   </FormControl>
                 ) : type === 'time' ? (
                   <TimePicker
-                    value={leaveData[name] ? new Date(leaveData[name]) : null}
+                    value={leaveData[name] ? parse(leaveData[name], 'HH:mm', new Date()) : null}
                     onChange={(newVal) =>
-                      setLeaveData({ ...leaveData, [name]: newVal ? newVal.toISOString() : '' })
+                      setLeaveData({ 
+                        ...leaveData, 
+                        [name]: newVal ? format(newVal, 'HH:mm') : '' 
+                      })
                     }
                     renderInput={(params) => (
                       <TextField

@@ -17,7 +17,6 @@ import { KeyboardArrowLeft, KeyboardArrowRight, CalendarToday as CalendarIcon } 
 import { DateTime } from "luxon";
 import { useGet } from "../../hooks/useApi";
 import { useAuth } from "../../middlewares/auth";
-import axios from "axios";
 import { motion } from 'framer-motion';
 
 // Placeholder logo paths - replace with your actual logo paths
@@ -48,6 +47,8 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
   const { user } = useAuth();
   const id = user?._id || '';
 
+  const monthQuery = `${currentYear}-${currentMonth.toString().padStart(2, '0')}`;
+
   // API Call 1: Daily Records (Dependent on currentMonth/currentYear)
   const { data: dailyRecords, error: recordsError } = useGet("employee/work-tracking/daily-records", {
     userId: id,
@@ -56,12 +57,20 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
   }, { enabled: !!id });
   
   // API Call 2: Leaves (Dependent on employeeId)
-  const { data: leaves, error: leavesError } = useGet('employee/leave/get-by-id', {
-    employeeId: id
-  }, { enabled: !!id });
+  const { data: leaves, error: leavesError } = useGet('employee/leave/get-by-id',
+     {
+      employeeId: id,
+    month: monthQuery,
+    status: "Approved",
+  },{ enabled: !!id });
   
   // API Call 3: Policy Data (Static)
   const { data: policyData, error: policyError } = useGet("company/policy/attendece-get", { employeeId: id }, { enabled: !!id });
+
+  // API Call 4: Holiday Events (Dependent on month)
+  const { data: holidayData, error: holidayError } = useGet("/employee/event/holiday-events", {
+    month: monthQuery
+  }, { enabled: !!id });
 
   const [policy, setPolicy] = useState({ workingHours: 8, workingDays: {} });
 
@@ -72,102 +81,46 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
     sandwichLeave: "#8b5cf6",
     weekend: "#e5e7eb",
     halfDay: "#fb7185",
-    onLeave: "#facc15",
+    paidLeave: "#22c55e",
+    unpaidLeave: "#f59e0b",
   };
 
   useEffect(() => {
-    if (policyData?.data?.data) {
-      setPolicy(policyData.data.data);
+    if (policyData?.data?.data?.[0]) {
+      const pol = policyData.data.data[0];
+      let workingHoursNum = 8;
+      if (pol.workingHours && pol.workingHours.start && pol.workingHours.end) {
+        const [startHour, startMin] = pol.workingHours.start.split(':').map(Number);
+        const [endHour, endMin] = pol.workingHours.end.split(':').map(Number);
+        workingHoursNum = (endHour - startHour) + ((endMin - startMin) / 60);
+      }
+      setPolicy({ 
+        workingHours: workingHoursNum, 
+        workingDays: pol.workingDays || {} 
+      });
     }
     if (policyError) {
       setError("Failed to load policy data");
     }
   }, [policyData, policyError]);
 
-  // Holiday Fetcher Function (API Key Dummy - Replace with actual key)
-  const fetchHolidays = useCallback(async (year, month) => {
-    // This is the URL structure causing repeated calls if not managed correctly
-    const API_KEY = "YOUR_GOOGLE_CALENDAR_API_KEY"; // REPLACE THIS WITH YOUR REAL KEY
-    if (API_KEY === "YOUR_GOOGLE_CALENDAR_API_KEY") {
-        console.warn("Google Calendar API Key is a placeholder. Holidays will not fetch.");
-        return [];
-    }
-    
-    const timeMin = DateTime.fromObject({ year, month, day: 1 }).toISO();
-    const timeMax = DateTime.fromObject({ year, month }).endOf("month").plus({ days: 1 }).toISO();
-    const url = `https://www.googleapis.com/calendar/v3/calendars/en.indian%23holiday%40group.v.calendar.google.com/events?key=${API_KEY}&timeMin=${timeMin}&timeMax=${timeMax}`;
-    
-    try {
-      const response = await axios.get(url);
-      return response.data.items.map((event) => ({
-        id: event.id,
-        // Ensure date parsing is robust for both date and dateTime formats
-        start: new Date(event.start.date || event.start.dateTime),
-        end: new Date(event.end.date || event.end.dateTime),
-        title: "Holiday",
+  // Process holiday data
+  useEffect(() => {
+    if (holidayData?.data?.data) {
+      const holidays = holidayData.data.data.map((h) => ({
+        id: h._id,
+        start: new Date(h.start),
+        end: new Date(h.end),
+        title: h.title,
         color: colorPalette.holiday,
       }));
-    } catch (error) {
-      console.error("Failed to fetch holidays:", error);
-      return [];
+      setFetchedHolidays(holidays);
+    } else if (holidayError) {
+      console.error("Failed to fetch holidays:", holidayError);
+      setFetchedHolidays([]);
     }
-  }, [colorPalette.holiday]);
-  
-  
-  useEffect(() => {
-    const getHolidays = async () => {
-        const holidays = await fetchHolidays(currentYear, currentMonth);
-        setFetchedHolidays(holidays);
-    };
+  }, [holidayData, holidayError, colorPalette.holiday]);
 
-    getHolidays();
-  }, [currentYear, currentMonth, fetchHolidays]); 
-
-  const handleSandwichLeaves = useCallback((events, absentDates, monthStart, monthEnd, policy) => {
-    const sandwichLeaveDates = new Set();
-    const nonWorkingDays = policy?.workingDays
-      ? Object.keys(policy.workingDays)
-          .filter((day) => !policy.workingDays[day])
-          .map(Number)
-      : [];
-
-    for (let d = monthStart.clone(); d.isSameOrBefore(monthEnd, 'day'); d.add(1, 'day')) {
-      const dayNum = d.day();
-      if (!isWorkingDay(dayNum, policy)) { 
-        const nonWorkingDate = d.clone();
-        const dayBefore = nonWorkingDate.clone().subtract(1, 'days');
-        const dayAfter = nonWorkingDate.clone().add(1, 'days');
-
-        if (dayBefore.isSameOrAfter(monthStart) && dayAfter.isSameOrBefore(monthEnd)) {
-          const nonStr = nonWorkingDate.format('YYYY-MM-DD');
-          const beforeStr = dayBefore.format('YYYY-MM-DD');
-          const afterStr = dayAfter.format('YYYY-MM-DD');
-
-          if (absentDates.has(beforeStr) && absentDates.has(afterStr)) {
-            sandwichLeaveDates.add(nonStr);
-            sandwichLeaveDates.add(beforeStr);
-            sandwichLeaveDates.add(afterStr);
-          }
-        }
-      }
-    }
-
-    sandwichLeaveDates.forEach((date) => {
-      const index = events.findIndex((e) => moment(e.start).format('YYYY-MM-DD') === date);
-      if (index !== -1) {
-        events.splice(index, 1);
-      }
-      events.push({
-        id: `sandwich-${date}`,
-        start: moment(date).toDate(),
-        end: moment(date).toDate(),
-        color: colorPalette.sandwichLeave,
-        title: "Sandwich Leave",
-        isSandwichLeave: true,
-      });
-    });
-  }, [colorPalette.sandwichLeave]);
-  
   const isWorkingDay = useCallback((dayNum, policy) => {
     // 0 = Sunday, 6 = Saturday
     const workingDaysPolicy = policy?.workingDays;
@@ -175,6 +128,150 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
     if (!workingDaysPolicy) return true; 
     return workingDaysPolicy[dayNum] === true;
   }, []);
+
+  const hasAdjacentAbsentChain = useCallback((momentDate, direction, absentDates, monthStart, monthEnd, policy) => {
+    // direction: 'left' for backward, 'right' for forward
+    let checkMoment = momentDate.clone();
+    if (direction === 'left') {
+      checkMoment.subtract(1, 'days');
+    } else {
+      checkMoment.add(1, 'days');
+    }
+
+    if ((direction === 'left' && checkMoment.isSameOrAfter(monthStart)) ||
+        (direction === 'right' && checkMoment.isSameOrBefore(monthEnd))) {
+      const checkStr = checkMoment.format('YYYY-MM-DD');
+      if (absentDates.has(checkStr) && checkMoment.isSameOrBefore(moment(), 'day') && isWorkingDay(checkMoment.day(), policy)) {
+        return true;
+      }
+    }
+    return false;
+  }, [isWorkingDay]);
+
+  const getAdjacentChainDates = useCallback((momentDate, direction, absentDates, monthStart, monthEnd, policy) => {
+    const chainDates = new Set();
+    let checkMoment = momentDate.clone();
+    if (direction === 'left') {
+      checkMoment.subtract(1, 'days');
+    } else {
+      checkMoment.add(1, 'days');
+    }
+
+    if ((direction === 'left' && checkMoment.isSameOrAfter(monthStart)) ||
+        (direction === 'right' && checkMoment.isSameOrBefore(monthEnd))) {
+      const checkStr = checkMoment.format('YYYY-MM-DD');
+      if (absentDates.has(checkStr) && checkMoment.isSameOrBefore(moment(), 'day') && isWorkingDay(checkMoment.day(), policy)) {
+        chainDates.add(checkStr);
+        // Extend the chain
+        let extendMoment = checkMoment.clone();
+        if (direction === 'left') {
+          extendMoment.subtract(1, 'days');
+          while (extendMoment.isSameOrAfter(monthStart) && absentDates.has(extendMoment.format('YYYY-MM-DD')) && 
+                 extendMoment.isSameOrBefore(moment(), 'day') && isWorkingDay(extendMoment.day(), policy)) {
+            chainDates.add(extendMoment.format('YYYY-MM-DD'));
+            extendMoment.subtract(1, 'days');
+          }
+        } else {
+          extendMoment.add(1, 'days');
+          while (extendMoment.isSameOrBefore(monthEnd) && absentDates.has(extendMoment.format('YYYY-MM-DD')) && 
+                 extendMoment.isSameOrBefore(moment(), 'day') && isWorkingDay(extendMoment.day(), policy)) {
+            chainDates.add(extendMoment.format('YYYY-MM-DD'));
+            extendMoment.add(1, 'day');
+          }
+        }
+      }
+    }
+    return chainDates;
+  }, [isWorkingDay]);
+
+  const handleSandwichLeaves = useCallback((events, absentDates, monthStart, monthEnd, policy, holidays) => {
+    // Policy non-working dates: weekends + policy off days (exclude holidays)
+    const policyNonWorkingDates = new Set();
+    
+    for (let d = monthStart.clone(); d.isSameOrBefore(monthEnd, 'day'); d.add(1, 'day')) {
+      const dayNum = d.day();
+      if (!isWorkingDay(dayNum, policy)) {
+        policyNonWorkingDates.add(d.format('YYYY-MM-DD'));
+      }
+    }
+    
+    // Do not add holidays to policyNonWorkingDates to avoid sandwich around holidays
+
+    // Find consecutive policy non-working blocks
+    const blocks = [];
+    let currentBlock = [];
+    
+    let currentDate = monthStart.clone();
+    while (currentDate.isSameOrBefore(monthEnd, 'day')) {
+      const dateStr = currentDate.format('YYYY-MM-DD');
+      if (policyNonWorkingDates.has(dateStr)) {
+        if (currentBlock.length === 0) {
+          currentBlock = [dateStr];
+        } else {
+          currentBlock.push(dateStr);
+        }
+      } else {
+        if (currentBlock.length > 0) {
+          blocks.push(currentBlock);
+          currentBlock = [];
+        }
+      }
+      currentDate.add(1, 'day');
+    }
+    if (currentBlock.length > 0) {
+      blocks.push(currentBlock);
+    }
+
+    const sandwichLeaveDates = new Set();
+
+    // Process each block
+    blocks.forEach((block) => {
+      const blockStartStr = block[0];  // Earliest date in block
+      const blockEndStr = block[block.length - 1];  // Latest
+      
+      const blockStartMoment = moment(blockStartStr);
+      const blockEndMoment = moment(blockEndStr);
+      
+      // Check for left adjacent chain
+      const hasLeftChain = hasAdjacentAbsentChain(blockStartMoment, 'left', absentDates, monthStart, monthEnd, policy);
+      
+      // Check for right adjacent chain
+      const hasRightChain = hasAdjacentAbsentChain(blockEndMoment, 'right', absentDates, monthStart, monthEnd, policy);
+      
+      // Only if BOTH sides have adjacent absents/unpaid leaves
+      if (hasLeftChain && hasRightChain) {
+        // Add block dates (weekends/non-working) to sandwich
+        block.forEach(dateStr => sandwichLeaveDates.add(dateStr));
+        
+        // Add left chain dates
+        const leftChainDates = getAdjacentChainDates(blockStartMoment, 'left', absentDates, monthStart, monthEnd, policy);
+        leftChainDates.forEach(dateStr => sandwichLeaveDates.add(dateStr));
+        
+        // Add right chain dates
+        const rightChainDates = getAdjacentChainDates(blockEndMoment, 'right', absentDates, monthStart, monthEnd, policy);
+        rightChainDates.forEach(dateStr => sandwichLeaveDates.add(dateStr));
+      }
+    });
+
+    // Remove old events and add sandwich ones
+    sandwichLeaveDates.forEach((dateStr) => {
+      const index = events.findIndex((e) => e.start === dateStr);
+      if (index !== -1) {
+        events.splice(index, 1);
+      }
+      // Push for all sandwich dates (working/absent/non-working) - show future too if needed, but logic is past only
+      const eventDate = moment(dateStr);
+      if (eventDate.isSameOrBefore(moment(), 'day')) {  // Keep past/current only for sandwich
+        events.push({
+          id: `sandwich-${dateStr}`,
+          start: dateStr,
+          color: colorPalette.sandwichLeave,
+          title: "Sandwich Leave",
+          isSandwichLeave: true,
+        });
+      }
+    });
+  }, [colorPalette.sandwichLeave, isWorkingDay, hasAdjacentAbsentChain, getAdjacentChainDates]);
 
   const processRecords = useCallback(async () => {
     setLoading(true);
@@ -203,12 +300,12 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
       return;
     }
 
-    // Process attendance records
+    // Process attendance records (but won't use if leave present)
     const workingHours = policy.workingHours || 8;
     const halfDayThreshold = workingHours * 0.5;
     records.forEach((entry) => {
       if (!entry?.day) return;
-      const start = moment(entry.day).toDate();
+      const dateStr = moment(entry.day).format("YYYY-MM-DD");
       let color = colorPalette.absent;
       let title = "";
 
@@ -220,82 +317,101 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
 
       transformedEvents.push({
         id: entry.day,
-        start,
-        end: start,
+        start: dateStr,
         color,
         title,
       });
     });
 
     
-    // Build all days events
+    // Build all days events - PRIORITY: LEAVE > ATTENDANCE > ABSENT
     const allDaysEvents = [];
     const absentDates = new Set();
 
     for (let date = monthStart.clone(); date.isSameOrBefore(monthEnd, 'day'); date.add(1, 'day')) {
       const formattedDate = date.format("YYYY-MM-DD");
       const dayNum = date.day();
+      const isPastOrToday = date.isSameOrBefore(moment(), 'day');
 
-      const attEvent = transformedEvents.find((e) => moment(e.start).format("YYYY-MM-DD") === formattedDate);
-      
       const leave = leaves?.data?.data?.leaveRequests?.find((l) => 
-        moment(l.date).format("YYYY-MM-DD") === formattedDate && ["Approved", "Pending"].includes(l.status)
+        moment.utc(l.date).format("YYYY-MM-DD") === formattedDate && ["Approved", "Pending"].includes(l.status)
       );
+      
+      const attEvent = transformedEvents.find((e) => e.start === formattedDate);
+      
       const isWorkDay = isWorkingDay(dayNum, policy);
 
-      if (attEvent) {
-        allDaysEvents.push(attEvent);
-      } else if (leave) {
+      if (leave) {
+        // LEAVE PRIORITY: Always push leave, even future
+        const isHalf = leave.leaveDuration === "Half Day";
+        const isPaidLeave = leave.isPaid || false;
+        const leaveColor = isHalf ? colorPalette.halfDay : (isPaidLeave ? colorPalette.paidLeave : colorPalette.unpaidLeave);
+        const leaveTitle = `${isHalf ? 'Half Day ' : ''}${isPaidLeave ? 'Paid ' : 'Unpaid '}Leave`;
         allDaysEvents.push({
           id: leave._id,
-          start: new Date(leave.date),
-          end: new Date(leave.date),
-          color: leave.leaveDuration === "Half Day" ? colorPalette.halfDay : colorPalette.onLeave,
-          title: "On Leave",
+          start: moment.utc(leave.date).format("YYYY-MM-DD"),
+          color: leaveColor,
+          title: leaveTitle,
         });
+        // Unpaid ko absent ki tarah treat (only past/current)
+        if (!isPaidLeave && isPastOrToday) {
+          absentDates.add(formattedDate);
+        }
+      } else if (attEvent) {
+        // ATTENDANCE if no leave
+        allDaysEvents.push(attEvent);
+        if (attEvent.color === colorPalette.absent && isPastOrToday) {
+          absentDates.add(formattedDate);
+        }
       } else if (isWorkDay) {
-        if (date.isSameOrBefore(moment(), 'day')) {
+        // ABSENT only if working day, no att/leave, and past/current
+        if (isPastOrToday) {
           absentDates.add(formattedDate);
           allDaysEvents.push({
             id: formattedDate,
-            start: date.toDate(),
-            end: date.toDate(),
+            start: formattedDate,
             color: colorPalette.absent,
             title: "Absent",
           });
         }
+        // Future working: no event (white)
       } else {
-        // Not a working day (Weekend/Policy defined non-working day)
-        allDaysEvents.push({
-          id: formattedDate,
-          start: date.toDate(),
-          end: date.toDate(),
-          color: colorPalette.weekend,
-          title: "Weekend/Non-working Day",
-          isWeekend: true,
-        });
+        // Non-working: no event initially (white, even future)
       }
     }
 
-    // Process sandwich leaves
-    handleSandwichLeaves(allDaysEvents, absentDates, monthStart, monthEnd, policy);
+    // Process sandwich leaves (only on absents/unpaid, past/current)
+    handleSandwichLeaves(allDaysEvents, absentDates, monthStart, monthEnd, policy, fetchedHolidays);
 
+    // Holidays merge (override everything, including future leaves/sandwich)
     const finalEvents = [...allDaysEvents];
     fetchedHolidays.forEach((h) => {
-      const dateStr = moment(h.start).format("YYYY-MM-DD");
-      const index = finalEvents.findIndex((e) => moment(e.start).format("YYYY-MM-DD") === dateStr);
-      if (index > -1) {
-        // Overwrite existing event (like weekend/absent) with holiday color
-        finalEvents[index] = { ...finalEvents[index], color: colorPalette.holiday, title: "Holiday" };
-      } else {
-        finalEvents.push(h);
+      let current = moment(h.start).clone().startOf('day');
+      const endDay = moment(h.end).clone().startOf('day');
+      while (current.isSameOrBefore(endDay)) {
+        const dateStr = current.format("YYYY-MM-DD");
+        const index = finalEvents.findIndex((e) => e.start === dateStr);
+        if (index > -1) {
+          finalEvents[index] = { 
+            ...finalEvents[index], 
+            color: h.color, 
+            title: h.title 
+          };
+        } else {
+          finalEvents.push({
+            id: `holiday-${dateStr}`,
+            start: dateStr,
+            color: h.color,
+            title: h.title,
+          });
+        }
+        current.add(1, 'day');
       }
     });
 
     setEvents(finalEvents);
     setLoading(false);
     
-  // Dependencies Array Fix: `fetchedHolidays` को जोड़ा गया है ताकि हॉलिडे डेटा आने पर processing हो
   }, [dailyRecords, leaves, policy, recordsError, fetchedHolidays, colorPalette, isWorkingDay, handleSandwichLeaves, currentYear, currentMonth]); 
 
   // --- EFFECT: Trigger Data Processing (Still needed to run when data is fetched) ---
@@ -355,12 +471,12 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
 
   const getEventForDate = useCallback((date) => {
     const dateStr = date.format('YYYY-MM-DD');
-    return events.find((event) => moment(event.start).format('YYYY-MM-DD') === dateStr);
+    return events.find((event) => event.start === dateStr);
   }, [events]);
 
   const getEventCountForDate = useCallback((date) => {
     const dateStr = date.format('YYYY-MM-DD');
-    return events.filter((event) => moment(event.start).format('YYYY-MM-DD') === dateStr).length;
+    return events.filter((event) => event.start === dateStr).length;
   }, [events]);
 
   const isToday = useCallback((date) => {
@@ -374,18 +490,20 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
   // --- END HELPER FUNCTIONS ---
 
 
-  // Filter out weekend events for the total count display
-  const markedEvents = events.filter((e) => e.color !== colorPalette.weekend);
+  // Filter out weekends (no events for them, so all events are marked: attended/absent/leave/holiday)
+  const markedEvents = events; // Since no weekend events pushed
 
-  // --- RENDER FUNCTIONS (Remains the same as before) ---
+  // --- RENDER FUNCTIONS ---
 
   const renderDayCell = (date) => {
     const event = getEventForDate(date);
     const eventCount = getEventCountForDate(date);
     const today = isToday(date);
     const currentMonthDay = isCurrentMonth(date);
+    const dayNum = date.day();
+    const isWeekendDay = !isWorkingDay(dayNum, policy);
 
-    // Default styles for all cells (like the image)
+    // Default styles: white for no event (weekend or future)
     let cellStyle = {
       position: 'relative',
       height: 60,
@@ -400,37 +518,37 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
       fontSize: '1rem',
       fontWeight: 500,
       color: currentMonthDay ? '#333' : '#a0a0a0', 
-      backgroundColor: '#f7f7f7', 
+      backgroundColor: '#ffffff', 
       border: 'none', 
       boxShadow: 'none', 
       '&:hover': {
         backgroundColor: currentMonthDay ? alpha('#3b82f6', 0.1) : '#e0e0e0',
         transform: 'none',
       },
-      // Important: Ensure non-current month days look like the image
-      ...(event?.isWeekend && currentMonthDay ? { backgroundColor: '#e0e0e0', color: '#777' } : {}),
       ...(!currentMonthDay ? { backgroundColor: '#ededed', color: '#a0a0a0' } : {}),
     };
 
     let indicator = null;
     let dotIndicator = null;
-    let primaryColor = '#3b82f6'; // Default blue for attended/leave
+    let primaryColor = '#3b82f6'; 
 
-    if (event && !event.isWeekend && currentMonthDay) {
+    let tooltipTitle = date.format('dddd, MMMM D');
+    if (event) {
+      tooltipTitle = `Status: ${event.title || Object.keys(colorPalette).find(key => colorPalette[key] === event.color)?.replace(/([A-Z])/g, " $1").trim()}`;
+    } else if (isWeekendDay && currentMonthDay) {
+      tooltipTitle = "Weekend/Non-working Day";
+    } else if (!isWorkingDay(dayNum, policy) && !currentMonthDay) {
+      tooltipTitle = "Weekend/Non-working Day";
+    }
+    // Future working day: default tooltip, no special
+
+    if (event && currentMonthDay) {
       const eventColor = event.color;
 
-      // Determine primary color based on event type for background
-      if (eventColor === colorPalette.attended) {
-        primaryColor = '#3b82f6'; // Blue (for general attendance)
-      } else if (eventColor === colorPalette.onLeave || eventColor === colorPalette.halfDay || eventColor === colorPalette.sandwichLeave) {
-        primaryColor = '#16a34a'; // Green (for leave/special attended)
-      } else if (eventColor === colorPalette.holiday) {
-        primaryColor = '#f97316'; // Orange (for holiday)
-      } else if (eventColor === colorPalette.absent) {
-        primaryColor = '#ef4444'; // Red (for absent)
-      }
+      // Direct palette color for match
+      primaryColor = eventColor;
 
-      // Apply primary styling
+      // Apply styling
       cellStyle = {
         ...cellStyle,
         backgroundColor: primaryColor,
@@ -441,18 +559,17 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
         },
       };
       
-      // If there are multiple events or it's a special type, use the +N indicator
-      const requiresPlusIndicator = eventCount > 1 || eventColor === colorPalette.onLeave || eventColor === colorPalette.halfDay || eventColor === colorPalette.sandwichLeave;
+      // Indicators logic same
+      const requiresPlusIndicator = eventCount > 1 || eventColor === colorPalette.halfDay || eventColor === colorPalette.paidLeave || eventColor === colorPalette.unpaidLeave || eventColor === colorPalette.sandwichLeave;
 
       if (requiresPlusIndicator) {
         const plusNum = eventCount > 1 ? eventCount : 1;
         
-        // Match Day 19 (Greenish background, dark green indicator)
         if (today && eventColor !== colorPalette.absent) {
           cellStyle = {
             ...cellStyle,
-            backgroundColor: '#a3e635', // Greenish-Yellow (like 19 in image)
-            color: '#1f2937', // Dark text color
+            backgroundColor: '#a3e635',
+            color: '#1f2937',
             fontWeight: 600,
             '&:hover': {
               backgroundColor: alpha('#a3e635', 0.8),
@@ -464,7 +581,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
                 position: 'absolute',
                 bottom: 2,
                 right: 2,
-                backgroundColor: '#16a34a', // Darker Green
+                backgroundColor: '#16a34a',
                 color: 'white',
                 borderRadius: '50%',
                 width: 16,
@@ -480,7 +597,6 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
             </Box>
           );
         } else {
-          // Default dot indicator for other marked days (like 20 and 21 in image)
           dotIndicator = (
             <Box
               sx={{
@@ -497,7 +613,6 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
           );
         }
       } else {
-        // Simple dot for single attended event
         dotIndicator = (
           <Box
             sx={{
@@ -515,12 +630,12 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
       }
     }
     
-    // Highlight today if no special event is overriding it
+    // Today highlight if no event
     if (today && !event) {
         cellStyle = {
             ...cellStyle,
-            backgroundColor: 'rgba(59, 130, 246, 0.1)', // Light blue for today
-            color: '#3b82f6', // Blue text
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            color: '#3b82f6',
             fontWeight: 600,
         }
     }
@@ -528,7 +643,7 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
 
     return (
       <Tooltip 
-        title={event ? `Status: ${event.title || Object.keys(colorPalette).find(key => colorPalette[key] === event.color).replace(/([A-Z])/g, " $1").trim()}` : date.format('dddd, MMMM D')}
+        title={tooltipTitle}
         arrow
       >
         <Box
@@ -632,7 +747,6 @@ const CalendarViewAttendance = ({ getTimes = () => {}, size = { height: { xs: '3
                 
                 {/* Calendar Wrapper Box */}
                 <Paper
-
                 elevation={6}
                     sx={{
                         background: '#ffffff',

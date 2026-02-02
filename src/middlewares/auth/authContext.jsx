@@ -106,20 +106,20 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (users?.data && !user && !apiLoading) {
       try {
-        const userData = users.data?.message.data;
+        const apiUserData = users.data?.message?.data;
 
-        if (userData?.access) {
-          userData.access = userData.access.map((a) => a.toLowerCase());
-        }
+        setUser((prevUser) => {
+          const mergedUser = { ...prevUser, ...apiUserData };
 
-        const expiry = Date.now() + 12 * 3600000; // 12h
-        const dataToEncrypt = { data: userData, expiry };
-        const encrypted = encryptData(dataToEncrypt);
+          const expiry = Date.now() + 12 * 3600000;
+          const encrypted = encryptData({ data: mergedUser, expiry });
+          if (encrypted) {
+            localStorage.setItem("user", encrypted);
+          }
 
-        if (encrypted) {
-          localStorage.setItem("user", encrypted);
-          setUser(userData);
-        }
+          return mergedUser;
+        });
+
       } catch (error) {
         console.error("Error processing API user data:", error);
       }
@@ -184,6 +184,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // console.log("LOCAL USER:", user);
+  // console.log("API USER:", users?.data?.message?.data?.companyLogoBase64);
+
+
   // Logout
   const logout = async () => {
     console.log("Logging out user...");
@@ -202,36 +206,36 @@ export const AuthProvider = ({ children }) => {
 
   // 🚨 Auto redirect if no portal access
   useEffect(() => {
-  if (loading) return;
+    if (loading) return;
 
-  if (location.pathname === "/login" || location.pathname === "/register") {
-    return;
-  }
+    if (location.pathname === "/login" || location.pathname === "/register") {
+      return;
+    }
 
-  if (user) {
-    const redirectPortal = checkPortalAccess(user);
+    if (user) {
+      const redirectPortal = checkPortalAccess(user);
 
-    if (redirectPortal === "user") {
-      const currentHost = window.location.hostname;
-      const targetHost =
-        currentHost === "localhost" || currentHost === "127.0.0.1"
-          ? new URL(ALLOWED_PORTALS.user.local).hostname
-          : new URL(ALLOWED_PORTALS.user.prod).hostname;
-
-      if (currentHost !== targetHost) {
-        window.location.href =
+      if (redirectPortal === "user") {
+        const currentHost = window.location.hostname;
+        const targetHost =
           currentHost === "localhost" || currentHost === "127.0.0.1"
-            ? ALLOWED_PORTALS.user.local
-            : ALLOWED_PORTALS.user.prod;
+            ? new URL(ALLOWED_PORTALS.user.local).hostname
+            : new URL(ALLOWED_PORTALS.user.prod).hostname;
+
+        if (currentHost !== targetHost) {
+          window.location.href =
+            currentHost === "localhost" || currentHost === "127.0.0.1"
+              ? ALLOWED_PORTALS.user.local
+              : ALLOWED_PORTALS.user.prod;
+        }
+      }
+
+      // Optional: handle logout redirect similarly
+      if (redirectPortal === "logout") {
+        logout();
       }
     }
-
-    // Optional: handle logout redirect similarly
-    if (redirectPortal === "logout") {
-      logout();
-    }
-  }
-}, [user, token, loading]);
+  }, [user, token, loading]);
 
 
 

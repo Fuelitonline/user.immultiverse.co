@@ -84,36 +84,36 @@ apiClient.interceptors.request.use(
   }
 );
 
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      console.warn("Unauthorized! Redirecting to login...");
-
-      localStorage.removeItem("user");
-      localStorage.removeItem("authToken");
-
-      window.location.href = "https://auth.immultiverse.co/login?user=user&redirect=admin.immultiverse.co";
-    }
-
-    return Promise.reject(error);
-  }
-);
-
-// apiClient.interceptors.request.use(
-//   (config) => {
-//     const tokenData = localStorage.getItem('authToken');
-//     if (tokenData) {
-//       config.headers.Authorization = `Bearer ${tokenData}`;
-//     } else {
-//       console.warn('No valid token found or decryption failed');
-//     }
-//     return config;
-//   },
+// apiClient.interceptors.response.use(
+//   (response) => response,
 //   (error) => {
-//     console.error('Request Error:', error);
+//     if (error.response?.status === 401) {
+//       console.warn("Unauthorized! Redirecting to login...");
+
+//       localStorage.removeItem("user");
+//       localStorage.removeItem("authToken");
+
+//       window.location.href = "https://auth.immultiverse.co/login?user=user&redirect=admin.immultiverse.co";
+//     }
+
 //     return Promise.reject(error);
 //   }
 // );
+
+apiClient.interceptors.request.use(
+  (config) => {
+    const tokenData = localStorage.getItem('authToken');
+    if (tokenData) {
+      config.headers.Authorization = `Bearer ${tokenData}`;
+    } else {
+      console.warn('No valid token found or decryption failed');
+    }
+    return config;
+  },
+  (error) => {
+    console.error('Request Error:', error);
+    return Promise.reject(error);
+  }
+);
 
 export default apiClient;

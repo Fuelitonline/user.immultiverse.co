@@ -75,3 +75,49 @@ body {
 .css-64muso-MuiAutocomplete-root .MuiOutlinedInput-root {
     padding: 0px!important;
 }
+
+.css-1wem31q-MuiTableCell-root {
+border-bottom: none!important;
+}
+
+.css-8x1qdf-MuiTableCell-root {
+    border-bottom: none!important;
+}
+
+.css-1wem31q-MuiTableCell-root {
+  border-right: 2px solid black!important;
+  border-left: 2px solid black!important;
+}
+
+.css-1pwc4ed-MuiTableCell-root{
+  border-right: 2px solid black!important;
+  border-top: 2px solid black!important;
+}
+
+.css-cd6iln-MuiTableCell-root {
+  border-right: 2px solid black!important;
+  border-top: 2px solid black!important;
+}
+
+.css-1qy54or-MuiGrid-root {
+    box-sizing: border-box!important;
+    display: flex!important;
+    flex-wrap: wrap!important;
+    width: 100%!important;
+    flex-direction: row!important;
+    margin-top: calc(-1 * 0px)!important;
+    width: calc(100% + 0px)!important;
+    margin-left: calc(-1 * 0px)!important;
+    margin-bottom: 0px!important;
+    padding-left: 8px!important;
+    padding-right: 8px!important;
+    border-left: 2px solid black!important;
+    border-top: 2px solid black!important;
+    border-right: 2px solid black!important;
+}
+
+
+
+
+
+
