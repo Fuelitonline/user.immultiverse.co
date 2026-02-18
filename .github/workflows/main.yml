@@ -46,9 +46,8 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: "./dist/"
           server-dir: "/"
-          protocol: "ftp"
+          protocol: "ftps"
           port: 21
-          create-dirs: true
           log-level: "verbose"  # More detailed FTP logs
         env:
           ENABLE_LOG: true
